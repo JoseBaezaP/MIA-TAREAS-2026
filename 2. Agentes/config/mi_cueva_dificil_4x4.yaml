@@ -1,0 +1,27 @@
+# Mi cueva 4x4 (copiada de classic_4x4.yaml). Edita posiciones de wumpus, pits y gold a tu gusto.
+# (1, 1) is the bottom-left cave. The agent starts there, facing east.
+
+grid:
+  width: 4
+  height: 4
+
+agent:
+  start: [4, 4]
+  direction: west
+  arrows: 1
+
+wumpus: [1, 2]
+
+pits:
+  - [2, 1]
+  - [3, 3]
+
+gold: [1, 1]
+
+scoring:
+  gold: 1000
+  death: -1000
+  step: -1
+  shoot: -10
+
+max_steps: 200
