@@ -1,0 +1,48 @@
+# =====================================================================
+# Qué NO se sube a GitHub (el repositorio es público).
+# Cada carpeta excluida conserva solo su README.md explicando por qué.
+# =====================================================================
+
+# --- Biblioteca original (PDFs con derechos de autor, ~14 GB) ---------
+/assets/*
+!/assets/README.md
+
+# --- Resultados intermedios de cada fase (derivados de los PDFs) ------
+/data/*
+!/data/README.md
+!/data/*/
+/data/*/*
+!/data/*/README.md
+
+# --- Información de tablas / volcados de base de datos ----------------
+*.sql.gz
+*.dump
+*.backup
+/infra/pgdata/
+/infra/respaldos/
+
+# --- Autenticación (usuarios, hashes, JWT) ----------------------------
+/backend/src/vetrag/auth/*
+!/backend/src/vetrag/auth/README.md
+/backend/tests/auth/
+
+# --- Secretos ---------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- Python -----------------------------------------------------------
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# --- Varios -----------------------------------------------------------
+.DS_Store
+*.log
+node_modules/
