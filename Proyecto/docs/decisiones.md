@@ -59,3 +59,20 @@ Cada decisión con las alternativas que se evaluaron y su justificación.
   **no los datos**.
 - Se excluyen los PDFs, los resultados intermedios, los volcados de la base, el módulo de
   autenticación y los secretos. Cada carpeta excluida tiene un README que explica por qué.
+
+## D8. OCR por modos según el inventario, y el riesgo de las unidades
+
+- El modo de OCR se elige con la F1: sin OCR si el texto ya es bueno, `--skip-text` para
+  escaneados/mixtos y `--redo-ocr` si la calidad es < 0.7. En el piloto: 5 de 10 documentos
+  no necesitaron OCR (ahorro de tiempo); el atlas con OCR viejo pasó de 0.63 a 0.87.
+- Se probó `--redo-ocr` en una presentación exportada a PDF: no recuperó más texto útil
+  (las diapositivas son títulos + fotos) y agregó basura al "leer" las fotos, así que se
+  mantiene `--skip-text` para los mixtos.
+- **Riesgo encontrado**: en la tabla de dosis, el OCR leyó `µg/kg` como `pg/kg`, `yg/kg`,
+  `1g/kg`, `g/kg`. En medicina, confundir microgramos con picogramos o gramos es un error
+  grave de dosificación. Mitigación:
+  1. En la limpieza (paso 3), convertir `pg`, `yg`, `ug`, `1g` a `µg` cuando van junto a
+     `/kg`, `/kg/h` o `/kg/min` (en dosis veterinarias no se usan picogramos). `g/kg` **no**
+     se corrige automáticamente, porque también es una unidad real (p. ej., glucosa
+     0.5 g/kg).
+  2. El agente cita siempre la fuente (libro y página) para que la dosis se pueda verificar.

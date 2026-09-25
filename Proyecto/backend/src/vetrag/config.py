@@ -26,6 +26,16 @@ class Configuracion(BaseSettings):
         """Carpeta de salida de la F1."""
         return self.ruta_data / "01_clasificacion"
 
+    @property
+    def ruta_piloto(self) -> Path:
+        """Lista de documentos del piloto (fuera de git: contiene nombres de libros)."""
+        return self.ruta_data / "piloto.txt"
+
+    @property
+    def ruta_ocr(self) -> Path:
+        """Carpeta de salida del paso de OCR (F2)."""
+        return self.ruta_data / "02_ocr"
+
 
 @lru_cache
 def obtener_configuracion() -> Configuracion:

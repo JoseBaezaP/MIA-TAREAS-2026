@@ -11,6 +11,7 @@ dependencies = [
 
 [project.scripts]
 vetrag-clasificar = "vetrag.clasificacion.__main__:main"
+vetrag-ingesta = "vetrag.ingesta.__main__:main"
 
 [dependency-groups]
 dev = [
