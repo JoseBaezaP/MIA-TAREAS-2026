@@ -14,7 +14,7 @@ cualquier paso sin repetir los anteriores.
 | Paso | Estado |
 |---|---|
 | 1. OCR | ✅ Probado en el piloto (10 documentos) |
-| 2. Conversión a Markdown | ⏳ |
+| 2. Conversión a Markdown | ✅ Probado en el piloto (10 documentos) |
 | 3. Limpieza | ⏳ |
 | 4. Chunking | ⏳ |
 | 5. Vectorización | ⏳ |
@@ -25,6 +25,7 @@ cualquier paso sin repetir los anteriores.
 |---|---|
 | `seleccion.py` | Lee `inventario.csv` y devuelve los documentos con `decision = conservar`; filtra el piloto |
 | `ocr.py` | Elige el modo de OCR de cada documento y ejecuta `ocrmypdf`; escribe el manifiesto |
+| `conversion.py` | Convierte cada documento a Markdown con `anydoc`, página por página, con marcas de página |
 | `__main__.py` | Comando `vetrag-ingesta` con un subcomando por paso |
 
 ## Paso 1: OCR
@@ -62,3 +63,39 @@ uv run vetrag-ingesta ocr            # todos los documentos conservados
 `yg`, `1g`, `g` en las tablas de dosis. Es un error de **un millón de veces** en una dosis.
 Se corrige en el paso 3 (limpieza), y el agente siempre debe citar la fuente (ver
 `docs/decisiones.md`, D8).
+
+## Paso 2: conversión a Markdown
+
+`anydoc` convierte un PDF completo en un solo bloque de Markdown, **sin indicar de qué página
+viene cada texto**. Para poder citar la página, cada PDF se divide en PDFs de una página
+(`pypdfium2`), cada uno se convierte por separado y se unen con una marca invisible:
+
+```markdown
+---
+documento: "Manual de bacteriología 2020"
+especialidad: "Bacteriología Vet"
+idioma: "es"
+fuente: "Mi biblioteca Veterinaria/Bacteriología Vet/Manual de bacteriología 2020.pdf"
+paginas: 42
+---
+
+<!-- pagina: 1 -->
+## UNIVERSIDAD AUTÓNOMA DE NUEVO LEÓN
+...
+<!-- pagina: 2 -->
+```
+
+- La cabecera (*front matter*) lleva los metadatos que usarán el chunking y las citas.
+- **Plan B**: anydoc rechaza algunas páginas que sí tienen texto. En el piloto fueron
+  páginas con muy poco texto (~70-100 caracteres) y alguna imagen, como una diapositiva con
+  título y foto; una página escaneada al 100 % pero con ~1,000 caracteres de OCR sí la
+  convirtió, así que no depende del tamaño de la imagen. Como su regla exacta es interna,
+  **cada vez** que rechaza una página se usa el texto plano de `pypdfium2`. En el piloto, una
+  presentación pasó de 30 páginas vacías a 3 (las 3 que de verdad no tienen texto).
+- **Página vacía** = ni anydoc ni `pypdfium2` encontraron texto.
+- Los PowerPoint/Word se convierten completos, sin marcas de página.
+- Se puede reanudar (si el `.md` ya existe, se salta) y deja `data/03_markdown/manifiesto.csv`.
+
+```bash
+uv run vetrag-ingesta convertir --piloto
+```

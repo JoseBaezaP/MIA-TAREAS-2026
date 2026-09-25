@@ -36,6 +36,11 @@ class Configuracion(BaseSettings):
         """Carpeta de salida del paso de OCR (F2)."""
         return self.ruta_data / "02_ocr"
 
+    @property
+    def ruta_markdown(self) -> Path:
+        """Carpeta de salida del paso de conversión a Markdown (F2)."""
+        return self.ruta_data / "03_markdown"
+
 
 @lru_cache
 def obtener_configuracion() -> Configuracion:

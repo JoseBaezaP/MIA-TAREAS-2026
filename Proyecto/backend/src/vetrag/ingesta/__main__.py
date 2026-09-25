@@ -3,6 +3,7 @@
 Cada paso de la ingesta es un subcomando, para poder correrlos y revisarlos por separado:
 
     uv run vetrag-ingesta ocr --piloto
+    uv run vetrag-ingesta convertir --piloto
 """
 
 import argparse
@@ -10,30 +11,52 @@ import logging
 import os
 from collections import Counter
 
-from vetrag.config import obtener_configuracion
-from vetrag.ingesta.ocr import ejecutar_ocr, escribir_manifiesto
-from vetrag.ingesta.seleccion import filtrar_piloto, leer_lista_piloto, leer_seleccion
+from vetrag.config import Configuracion, obtener_configuracion
+from vetrag.ingesta import conversion, ocr
+from vetrag.ingesta.seleccion import (
+    DocumentoSeleccionado,
+    filtrar_piloto,
+    leer_lista_piloto,
+    leer_seleccion,
+)
 
 logger = logging.getLogger("vetrag.ingesta")
 
 
+def _documentos(configuracion: Configuracion, piloto: bool) -> list[DocumentoSeleccionado]:
+    documentos = leer_seleccion(configuracion.ruta_clasificacion / "inventario.csv")
+    if piloto:
+        documentos = filtrar_piloto(documentos, leer_lista_piloto(configuracion.ruta_piloto))
+    return documentos
+
+
+def _resumir(estados: list[str]) -> None:
+    conteo = Counter(estados)
+    logger.info("Listo: %s", ", ".join(f"{estado}={n}" for estado, n in conteo.items()))
+
+
 def _comando_ocr(argumentos: argparse.Namespace) -> None:
     configuracion = obtener_configuracion()
-    documentos = leer_seleccion(configuracion.ruta_clasificacion / "inventario.csv")
-    if argumentos.piloto:
-        documentos = filtrar_piloto(documentos, leer_lista_piloto(configuracion.ruta_piloto))
+    documentos = _documentos(configuracion, argumentos.piloto)
     logger.info("OCR de %d documentos", len(documentos))
-
-    resultados = ejecutar_ocr(
+    resultados = ocr.ejecutar_ocr(
         documentos,
         configuracion.ruta_assets,
         configuracion.ruta_ocr,
         argumentos.trabajadores,
     )
-    escribir_manifiesto(resultados, configuracion.ruta_ocr / "manifiesto.csv")
+    ocr.escribir_manifiesto(resultados, configuracion.ruta_ocr / "manifiesto.csv")
+    _resumir([r.estado for r in resultados])
 
-    conteo = Counter(r.estado for r in resultados)
-    logger.info("Listo: %s", ", ".join(f"{estado}={n}" for estado, n in conteo.items()))
+
+def _comando_convertir(argumentos: argparse.Namespace) -> None:
+    configuracion = obtener_configuracion()
+    documentos = _documentos(configuracion, argumentos.piloto)
+    fuentes = conversion.leer_manifiesto_ocr(configuracion.ruta_ocr / "manifiesto.csv")
+    logger.info("Conversión a Markdown de %d documentos", len(documentos))
+    resultados = conversion.ejecutar_conversion(documentos, fuentes, configuracion.ruta_markdown)
+    conversion.escribir_manifiesto(resultados, configuracion.ruta_markdown / "manifiesto.csv")
+    _resumir([r.estado for r in resultados])
 
 
 def _argumentos() -> argparse.Namespace:
@@ -41,15 +64,23 @@ def _argumentos() -> argparse.Namespace:
     parser.add_argument("-v", "--verbose", action="store_true", help="más detalle en el log")
     pasos = parser.add_subparsers(dest="paso", required=True)
 
-    ocr = pasos.add_parser("ocr", help="paso 1: OCR de los PDFs que lo necesitan")
-    ocr.add_argument("--piloto", action="store_true", help="solo los documentos de piloto.txt")
-    ocr.add_argument(
+    parser_ocr = pasos.add_parser("ocr", help="paso 1: OCR de los PDFs que lo necesitan")
+    parser_ocr.add_argument(
+        "--piloto", action="store_true", help="solo los documentos de piloto.txt"
+    )
+    parser_ocr.add_argument(
         "--trabajadores",
         type=int,
         default=os.cpu_count() or 1,
         help="núcleos que usa ocrmypdf por documento",
     )
-    ocr.set_defaults(funcion=_comando_ocr)
+    parser_ocr.set_defaults(funcion=_comando_ocr)
+
+    parser_convertir = pasos.add_parser("convertir", help="paso 2: documentos → Markdown")
+    parser_convertir.add_argument(
+        "--piloto", action="store_true", help="solo los documentos de piloto.txt"
+    )
+    parser_convertir.set_defaults(funcion=_comando_convertir)
     return parser.parse_args()
 
 

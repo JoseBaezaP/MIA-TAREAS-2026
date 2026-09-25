@@ -17,11 +17,10 @@ def crear_pdf(ruta: Path, paginas: list[str]) -> Path:
     objetos.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     for i, texto in enumerate(paginas):
         lineas = [texto[j : j + 80] for j in range(0, len(texto), 80)]
-        comandos = (
-            "BT /F1 10 Tf 40 800 Td 12 TL "
-            + " ".join(f"({linea.replace('(', '').replace(')', '')}) '" for linea in lineas)
-            + " ET"
+        lineas_pdf = " ".join(
+            f"({linea.replace('(', '').replace(')', '')}) Tj 0 -12 Td" for linea in lineas
         )
+        comandos = f"BT /F1 10 Tf 40 800 Td {lineas_pdf} ET"
         contenido = comandos.encode("latin-1")
         objetos.append(
             f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
