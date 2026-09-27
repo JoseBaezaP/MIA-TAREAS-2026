@@ -16,7 +16,7 @@ from pathlib import Path
 
 from vetrag.clasificacion.detectores import CALIDAD_TEXTO_MINIMA
 from vetrag.clasificacion.modelos import TipoContenido
-from vetrag.ingesta.seleccion import DocumentoSeleccionado
+from vetrag.ingesta.seleccion import DocumentoSeleccionado, normalizar_ruta
 
 logger = logging.getLogger(__name__)
 
@@ -160,3 +160,15 @@ def escribir_manifiesto(resultados: Sequence[ResultadoOcr], destino: Path) -> No
             escritor.writerow(
                 (r.ruta_relativa, r.modo, r.estado, r.ruta_fuente, r.segundos, r.mensaje)
             )
+
+
+def leer_documentos_con_ocr(ruta_manifiesto: Path) -> frozenset[str]:
+    """Rutas de los documentos a los que sí se aplicó OCR (según el manifiesto)."""
+    con_ocr = {ModoOcr.COMPLETAR, ModoOcr.REHACER}
+    terminados = {EstadoOcr.PROCESADO, EstadoOcr.YA_EXISTIA}
+    with ruta_manifiesto.open(encoding="utf-8-sig", newline="") as archivo:
+        return frozenset(
+            normalizar_ruta(fila["ruta_relativa"])
+            for fila in csv.DictReader(archivo)
+            if fila["modo"] in con_ocr and fila["estado"] in terminados
+        )

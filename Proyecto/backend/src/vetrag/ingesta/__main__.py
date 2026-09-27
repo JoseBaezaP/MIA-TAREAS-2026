@@ -4,6 +4,7 @@ Cada paso de la ingesta es un subcomando, para poder correrlos y revisarlos por 
 
     uv run vetrag-ingesta ocr --piloto
     uv run vetrag-ingesta convertir --piloto
+    uv run vetrag-ingesta limpiar --piloto
 """
 
 import argparse
@@ -12,7 +13,7 @@ import os
 from collections import Counter
 
 from vetrag.config import Configuracion, obtener_configuracion
-from vetrag.ingesta import conversion, ocr
+from vetrag.ingesta import conversion, limpieza, ocr
 from vetrag.ingesta.seleccion import (
     DocumentoSeleccionado,
     filtrar_piloto,
@@ -59,6 +60,19 @@ def _comando_convertir(argumentos: argparse.Namespace) -> None:
     _resumir([r.estado for r in resultados])
 
 
+def _comando_limpiar(argumentos: argparse.Namespace) -> None:
+    configuracion = obtener_configuracion()
+    documentos = _documentos(configuracion, argumentos.piloto)
+    logger.info("Limpieza de %d documentos", len(documentos))
+    con_ocr = ocr.leer_documentos_con_ocr(configuracion.ruta_ocr / "manifiesto.csv")
+    resultados, reporte = limpieza.ejecutar_limpieza(
+        documentos, configuracion.ruta_markdown, configuracion.ruta_limpio, con_ocr
+    )
+    limpieza.escribir_manifiesto(resultados, configuracion.ruta_limpio / "manifiesto.csv")
+    limpieza.escribir_reporte(reporte, configuracion.ruta_limpio / "reporte_limpieza.csv")
+    _resumir([str(c.tipo) for _, c in reporte])
+
+
 def _argumentos() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ingesta de documentos (F2).")
     parser.add_argument("-v", "--verbose", action="store_true", help="más detalle en el log")
@@ -81,6 +95,12 @@ def _argumentos() -> argparse.Namespace:
         "--piloto", action="store_true", help="solo los documentos de piloto.txt"
     )
     parser_convertir.set_defaults(funcion=_comando_convertir)
+
+    parser_limpiar = pasos.add_parser("limpiar", help="paso 3: limpieza del Markdown")
+    parser_limpiar.add_argument(
+        "--piloto", action="store_true", help="solo los documentos de piloto.txt"
+    )
+    parser_limpiar.set_defaults(funcion=_comando_limpiar)
     return parser.parse_args()
 
 

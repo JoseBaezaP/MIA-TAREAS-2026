@@ -76,3 +76,37 @@ Cada decisión con las alternativas que se evaluaron y su justificación.
      se corrige automáticamente, porque también es una unidad real (p. ej., glucosa
      0.5 g/kg).
   2. El agente cita siempre la fuente (libro y página) para que la dosis se pueda verificar.
+
+## D9. Limpieza determinista y datos personales
+
+- La limpieza escribe en una carpeta aparte (`04_limpio/`) para poder ajustar las reglas y
+  repetirla sin volver a convertir.
+- **Datos personales**: se eliminan nombres **solo junto a etiquetas** (`Nombre:`,
+  `Matrícula:`, `Equipo:`…), matrículas, teléfonos y correos. No se usa detección automática
+  de nombres (NER) porque borraría epónimos médicos (síndrome de Cushing, tinción de Gram) y
+  los autores de las fuentes.
+- **Sin regla de direcciones** (decisión del autor): patrones como "Col." chocan con textos
+  de bacteriología ("colonia") y en la literatura casi no hay direcciones personales.
+- `Paciente:` no se trata como dato personal: en veterinaria describe al animal.
+- Las pruebas detectaron un error antes del piloto: normalizar **todos** los números hacía que
+  líneas de contenido distintas (`La catalasa 3…` / `La catalasa 4…`) parecieran encabezados
+  repetidos. Solo se normalizan los números de los extremos de la línea.
+
+## D10. Catálogo de unidades y corrección de µg según el origen del texto
+
+- Se armó un catálogo combinando los **prefijos SI** (mega a pico) con las **unidades base**
+  (g, mol, M, val, Eq, Osm, l, Pa, J, cal, kat, Bq, Gy, U, UI…), más unidades sin prefijo,
+  anglosajonas (gr, oz, lb, pt, gal…) y clínicas (gotas, UFC). Fuente: tablas de unidades SI,
+  prefijos y equivalencias anglosajonas de un libro de referencia del autor.
+- **Cambio de regla a partir de esas tablas**: `pg/kg` es una unidad real (Tabla 2: pico,
+  10⁻¹²; residuos en alimentos). Por eso `pg`/`yg`/`1g` → `µg` solo se corrige cuando el
+  documento pasó por OCR **y** la línea tiene contexto de dosis. En un PDF digital el texto
+  es exacto. `ug` sí se corrige siempre (no es una unidad; es `µg` sin el símbolo).
+- **Se respetan mayúsculas**: `mA` (miliamperio) es real, `ma` (un `mg` mal leído) no; `M`
+  (molar) no es `m` (metro). Unidades escritas todas en mayúsculas (`MG/KG`) se aceptan.
+- `gr` es ambiguo (grain = 64.8 mg en inglés; "gramo" en español): es real, pero el agente
+  debe advertir la ambigüedad.
+- El catálogo solo **clasifica**; no corrige números mal leídos ni tablas desalineadas. La
+  protección final es que el agente cite la fuente.
+- Piloto: las mismas 18 correcciones y 2 errores de OCR nuevos detectados (`ma/kg` en una
+  tabla de ketamina, `yg/dl` en un valor de cortisol).

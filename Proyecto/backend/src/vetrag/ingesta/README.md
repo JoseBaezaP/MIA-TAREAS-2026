@@ -8,14 +8,14 @@ PDF ─► ocr.py ─► conversion.py ─► limpieza.py ─► chunking.py ─
        (ocrmypdf) (anydoc → Markdown) (ruido)    (~800 tokens)   (Voyage voyage-4)
 ```
 
-Cada paso escribe su salida en `data/0X_*/`, así que el proceso se puede retomar desde
+Cada paso escribe su salida en `data/0X_*/` (`02_ocr`, `03_markdown`, `04_limpio`, `05_chunks`), así que el proceso se puede retomar desde
 cualquier paso sin repetir los anteriores.
 
 | Paso | Estado |
 |---|---|
 | 1. OCR | ✅ Probado en el piloto (10 documentos) |
 | 2. Conversión a Markdown | ✅ Probado en el piloto (10 documentos) |
-| 3. Limpieza | ⏳ |
+| 3. Limpieza | ✅ Probado en el piloto (10 documentos) |
 | 4. Chunking | ⏳ |
 | 5. Vectorización | ⏳ |
 
@@ -26,6 +26,8 @@ cualquier paso sin repetir los anteriores.
 | `seleccion.py` | Lee `inventario.csv` y devuelve los documentos con `decision = conservar`; filtra el piloto |
 | `ocr.py` | Elige el modo de OCR de cada documento y ejecuta `ocrmypdf`; escribe el manifiesto |
 | `conversion.py` | Convierte cada documento a Markdown con `anydoc`, página por página, con marcas de página |
+| `limpieza.py` | Quita encabezados repetidos, números de página y datos personales; corrige µg; genera el reporte |
+| `unidades.py` | Catálogo de unidades (prefijos SI × unidades base, anglosajonas y clínicas) para distinguir unidades reales de errores de OCR |
 | `__main__.py` | Comando `vetrag-ingesta` con un subcomando por paso |
 
 ## Paso 1: OCR
@@ -99,3 +101,27 @@ paginas: 42
 ```bash
 uv run vetrag-ingesta convertir --piloto
 ```
+
+## Paso 3: limpieza
+
+Lee `data/03_markdown/` y escribe en `data/04_limpio/`, sin modificar la conversión: si una
+regla borra de más, se corrige y se vuelve a limpiar sin volver a convertir. Se rehace
+completa en cada corrida (tarda segundos).
+
+| Tarea | Regla | Protecciones ("trampas" probadas) |
+|---|---|---|
+| Encabezados y pies repetidos | Línea en ≥ 50 % de las páginas (los números de los extremos cuentan como `#`) | Nunca toca líneas de tabla (`\|`); solo en documentos de ≥ 5 páginas; los números internos sí distinguen líneas |
+| Datos personales | `Nombre:`, `Matrícula:`, `Alumno:`, `Propietario:`, `Técnico de lab.:`; listas después de `Equipo:`/`Integrantes`; nombre + matrícula; teléfonos; correos | Sin regla de direcciones ("colonia" bacteriana); `Paciente:` se conserva (describe al animal); autores y epónimos (Cushing, Addison) se conservan |
+| Unidades | `ug` → `µg` siempre; `pg`, `yg`, `1g` + `/kg` → `µg/kg` **solo en documentos con OCR y en líneas de dosis** (IV, IM, CRI, bolo…) | `pg/kg` real en un PDF digital no se toca (residuos en alimentos); `g/kg`, `mol/kg`, `mval/l`, `mg/lb` no se tocan; lo que no está en el catálogo de `unidades.py` (`1a/kg`, `ma/kg`) solo se **reporta** |
+| Números de página | Líneas con solo `12`, `- 12 -`, `Página 12`, `12 de 40` | `Dosis 12 mg`, `1. Introducción` se conservan |
+
+`data/04_limpio/reporte_limpieza.csv` registra **cada cambio** (documento, página, regla,
+texto original y reemplazo) para revisarlo a mano.
+
+```bash
+uv run vetrag-ingesta limpiar --piloto
+```
+
+**Piloto:** 18 unidades corregidas a µg, 5 unidades fuera del catálogo reportadas, 7 datos personales eliminados (nombre y matrícula de
+una estudiante, 4 integrantes de un equipo, un correo y un teléfono), 7 encabezados/pies
+repetidos y 3 unidades sospechosas reportadas.
