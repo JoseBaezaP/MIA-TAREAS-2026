@@ -2,11 +2,18 @@
 
 Responde preguntas de medicina veterinaria **solo con la biblioteca** y cita libro y página.
 
+```mermaid
+graph TD;
+    inicio([inicio]) --> reformular;
+    reformular --> buscar;
+    buscar --> evaluar;
+    evaluar -. "ninguno sirve y quedan intentos" .-> reformular;
+    evaluar -. "hay fragmentos útiles, o no quedan intentos" .-> responder;
+    responder --> fin([fin]);
 ```
-START → reformular → buscar → evaluar ─┬─(hay fragmentos útiles, o no quedan intentos)→ responder → END
-            ▲                          │
-            └──(ninguno sirve y quedan intentos)┘
-```
+
+El diagrama sale del propio código (`grafo.get_graph().draw_mermaid()`); las líneas punteadas son
+la arista condicional `decidir_siguiente`.
 
 | Nodo | Qué hace | ¿Usa LLM? |
 |---|---|---|
