@@ -33,7 +33,7 @@ La justificación detallada de cada decisión está en [`docs/decisiones.md`](do
 |---|---|---|
 | F1. Clasificación del corpus | [`backend/src/vetrag/clasificacion`](backend/src/vetrag/clasificacion) | ✅ Completada: 362 archivos → 322 conservados, 40 descartados (revisión manual) |
 | F2. Ingesta (OCR, Markdown, chunking, vectorización) | [`backend/src/vetrag/ingesta`](backend/src/vetrag/ingesta) | ✅ Completada: 116,365 chunks en pgvector (12 documentos pendientes de reproceso) |
-| F3. Agente LangGraph + evaluación | [`backend/src/vetrag/agente`](backend/src/vetrag/agente) | 🚧 En diseño |
+| F3. Agente LangGraph + evaluación | [`backend/src/vetrag/agente`](backend/src/vetrag/agente) | 🚧 Agente y chat de consola listos; falta la evaluación |
 | F4. API + autenticación | [`backend/src/vetrag/api`](backend/src/vetrag/api) | ⏳ Pendiente |
 | F5. Frontend React | [`frontend`](frontend) | ⏳ Pendiente |
 | F6. Despliegue en EC2 | [`infra`](infra) | ⏳ Pendiente |

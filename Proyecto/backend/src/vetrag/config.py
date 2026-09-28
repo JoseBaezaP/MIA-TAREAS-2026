@@ -26,9 +26,17 @@ class Configuracion(BaseSettings):
     voyage_api_key: SecretStr | None = None
     database_url: SecretStr | None = None
 
+    openai_api_key: SecretStr | None = None
+
     modelo_embedding: str = "voyage-4"
     # Tokens gratuitos de voyage-4: 200 millones. Se deja margen por seguridad.
     limite_tokens_voyage: int = 190_000_000
+
+    # --- F3: agente ---
+    modelo_llm: str = "gpt-5.6-luna"
+    esfuerzo_razonamiento: str = "low"  # none, low, medium, high, xhigh, max
+    fragmentos_por_busqueda: int = 8
+    max_busquedas: int = 2  # búsqueda inicial + 1 reintento con otra consulta
 
     @property
     def ruta_clasificacion(self) -> Path:

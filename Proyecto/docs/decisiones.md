@@ -180,3 +180,21 @@ También se separó la regla "μ griega → µ" (1,099 casos: mismo símbolo, di
   guardado. La prueba falla con el código anterior y pasa con el corregido.
 - Los ~2.71 M de tokens que se enviaron sin quedar registrados se agregaron a mano a
   `uso_voyage` (fila con `chunks = 0`) para que el contador de seguridad sea exacto.
+
+## D15. Agente: SDK de OpenAI directo detrás de un puerto
+
+- **LLM**: `gpt-5.6-luna` (OpenAI), el modelo económico de GPT-5.6: $0.20 / $1.20 por millón de
+  tokens de entrada / salida y salidas estructuradas. Costo por pregunta: menos de medio
+  centavo de dólar (~3 llamadas, ~11 mil tokens de entrada).
+- **Sin LangChain**: LangGraph no lo necesita. Se usa el SDK oficial de OpenAI detrás del
+  puerto `ModeloLenguaje`, para ver exactamente qué se envía al modelo y tener las funciones
+  nuevas del modelo desde el primer día. Cambiar a LangChain (útil para el futuro agente de
+  reclutamiento: herramientas, trazabilidad, consistencia con LangGraph.js) es escribir otro
+  adaptador sin tocar el grafo.
+- **RAG agéntico**: un nodo `evaluar` revisa los fragmentos recuperados y, si ninguno sirve,
+  el grafo vuelve a `reformular` con una consulta distinta (máximo 2 búsquedas).
+- **Fuentes y advertencias por código**: el LLM cita `[n]`, pero la lista de fuentes y las
+  advertencias de unidades dudosas se arman de forma determinista (números inventados por el
+  LLM se ignoran).
+- **Memoria**: checkpointer de LangGraph por `thread_id`, con las clases propias declaradas
+  como tipos permitidos (medida de seguridad al deserializar). En la F4 pasará a PostgreSQL.

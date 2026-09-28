@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "firecrawl-anydoc>=0.2.4",
+    "langgraph>=1.2.12",
+    "openai>=3.19.2",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.4",
     "pypdfium2>=4.30",
@@ -15,6 +17,7 @@ dependencies = [
 [project.scripts]
 vetrag-clasificar = "vetrag.clasificacion.__main__:main"
 vetrag-ingesta = "vetrag.ingesta.__main__:main"
+vetrag-chat = "vetrag.agente.__main__:main"
 
 [dependency-groups]
 dev = [
