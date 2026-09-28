@@ -26,7 +26,11 @@ from pathlib import Path
 
 from vetrag.ingesta.conversion import MARCA_PAGINA, PATRON_MARCA_PAGINA, ruta_markdown
 from vetrag.ingesta.seleccion import DocumentoSeleccionado
-from vetrag.ingesta.unidades import buscar_unidades_desconocidas, tiene_contexto_de_dosis
+from vetrag.ingesta.unidades import (
+    buscar_unidades_desconocidas,
+    corregir_confusiones_ocr,
+    tiene_contexto_de_dosis,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +51,19 @@ _MAYUSCULA = "A-ZÁÉÍÓÚÑÜ"
 _MINUSCULA = "a-záéíóúñü"
 _PALABRA_NOMBRE = rf"[{_MAYUSCULA}][{_MINUSCULA}]+"
 
-# "Nombre: …", "Matrícula: …": se elimina desde la etiqueta hasta el final de la línea.
-# "Paciente:" no está a propósito: en veterinaria describe al animal (dato clínico).
+# "Nombre: …", "Matrícula: …": se elimina la etiqueta y **solo su valor**, que termina en la
+# siguiente etiqueta ("Especie:"), coma, celda de tabla o fin de línea. Así, en un caso clínico
+# ("Nombre: Mimo Especie: Felina Raza: Persa Edad: 7 años") se conservan los datos clínicos.
+# - La etiqueta debe ir al inicio de la línea, de una celda ("**Nombre:", "|Nombre:") o después
+#   de una coma: así no se borra "…conocida con el nombre: fibrosis hepatoportal".
+# - "nombres" (plural) no cuenta: "Otros nombres: Bobtail Japonés" describe razas de perro.
+# - "Paciente:" no está a propósito: en veterinaria describe al animal (dato clínico).
 _PATRON_ETIQUETA_PERSONAL = re.compile(
-    r"\b(nombres?|matr[ií]cula|alumn[oa]s?|estudiantes?|propietari[oa]s?"
-    r"|t[eé]cnico de lab(oratorio)?\.?)\s*:\s*\S.*$",
+    r"(?:^\s*|(?<=[|*•])|(?<=[,;]\s))"
+    r"(nombre|matr[ií]cula|alumn[oa]s?|estudiantes?|propietari[oa]s?"
+    r"|t[eé]cnico de lab(oratorio)?\.?)\s*:\s*"
+    r"[^|*,;\n]*?[^\s|*,;]"  # el valor
+    rf"(?=\s+[{_MAYUSCULA}][{_MINUSCULA}]+\s*:|\s*[|*,;]|\s*$)",  # dónde termina
     re.IGNORECASE,
 )
 # Línea que abre una lista de personas: "Equipo:", "Integrantes"
@@ -67,18 +79,30 @@ _PATRON_NOMBRE_CON_MATRICULA = re.compile(
 _PATRON_TELEFONO_ETIQUETA = re.compile(
     r"\b(tel[eé]fonos?|tel|cel(ular)?)\.?\s*:?\s*\+?[\d()][\d\s().-]{6,}\d", re.IGNORECASE
 )
+# Teléfono sin etiqueta. Se excluyen rangos de años, "(250) 1996-1998", que aparecen en las
+# referencias bibliográficas (volumen y años).
+_PATRON_RANGO_ANIOS = re.compile(r"(19|20)\d\d\s*[-–]\s*(19|20)\d\d")  # noqa: RUF001
+# Solo formatos inequívocos: con paréntesis, con guiones o con código de país. Un número
+# separado solo por espacios ("600 3200 6400") suele ser una fila de una tabla.
 _PATRON_TELEFONO = re.compile(
-    r"(?<![\d.,])(\+52[\s-]?)?(\(\d{2,3}\)\s?\d{3,4}[\s-]\d{4}|\d{2,3}[\s-]\d{4}[\s-]\d{4})(?![\d.,])"
+    r"(?<![\d.,])("
+    r"\+\d{1,3}[\s-]?\(?\d{2,3}\)?[\s-]?\d{3,4}[\s-]\d{4}"  # +52 81 1234 5678
+    r"|\(\d{2,3}\)\s?\d{3,4}-\d{4}"  # (81) 1234-5678
+    r"|\d{2,3}-\d{3,4}-\d{4}"  # 81-1234-5678
+    r")(?![\d.,])"
 )
 _PATRON_CORREO = re.compile(r"\b[\w.+-]+@[\w-]+(\.[\w-]+)+\b")
 
 # --- Unidades ---------------------------------------------------------------------------
 _CANTIDAD = r"(\d(?:[\d.,\s-]*\d)?\s*\|?\s*)"  # "5", "0,5-1", "10-20|" (tablas)
 # "ug" no es una unidad: es "µg" escrito sin el símbolo. Se corrige siempre.
-_PATRON_UG = re.compile(_CANTIDAD + r"(ug|μg)(?=(/[A-Za-z²]+))")
-# "pg", "yg", "1g" delante de "/kg" pueden ser "µg" mal leído por el OCR... o un "pg/kg" real
-# (residuos en alimentos). Solo se corrigen en documentos con OCR y en líneas de dosis.
-_PATRON_MICRO_OCR = re.compile(_CANTIDAD + r"(pg|yg|1g)(?=(/kg))")
+_PATRON_UG = re.compile(_CANTIDAD + r"(ug)(?=(/[A-Za-z²]+))")
+# "μg" (letra griega mu) y "µg" (símbolo micro) se ven igual; se unifica en "µ".
+_PATRON_MU_GRIEGA = re.compile(_CANTIDAD + r"(μg)(?=(/[A-Za-z²]+))")
+# "pg" y "1g" delante de "/kg" pueden ser "µg" mal leído por el OCR... o un "pg/kg" o
+# "1 g/kg" reales. Solo se corrigen en documentos con OCR y en líneas de dosis. ("yg" no es
+# una unidad real: se corrige siempre, con la tabla CONFUSIONES_OCR de unidades.py.)
+_PATRON_MICRO_OCR = re.compile(_CANTIDAD + r"(pg|1g)(?=(/kg))")
 
 
 class TipoCambio(StrEnum):
@@ -218,9 +242,19 @@ def quitar_lineas_repetidas(paginas: Sequence[Pagina]) -> list[Cambio]:
 
 
 def _sustituir(
-    patron: re.Pattern[str], regla: str, linea: str, pagina: int | None, cambios: list[Cambio]
+    patron: re.Pattern[str],
+    regla: str,
+    linea: str,
+    pagina: int | None,
+    cambios: list[Cambio],
+    excepto: re.Pattern[str] | None = None,
 ) -> str:
+    """Reemplaza cada coincidencia de ``patron`` por la marca, salvo las que contengan
+    ``excepto`` (p. ej. un rango de años que parece teléfono)."""
+
     def reemplazar(coincidencia: re.Match[str]) -> str:
+        if excepto is not None and excepto.search(coincidencia.group(0)):
+            return coincidencia.group(0)
         cambios.append(
             Cambio(
                 TipoCambio.DATO_PERSONAL, regla, coincidencia.group(0), MARCA_DATO_PERSONAL, pagina
@@ -278,7 +312,9 @@ def quitar_datos_personales(texto: str, pagina: int | None = None) -> tuple[str,
         linea = _sustituir(
             _PATRON_TELEFONO_ETIQUETA, "teléfono con etiqueta", linea, pagina, cambios
         )
-        linea = _sustituir(_PATRON_TELEFONO, "teléfono", linea, pagina, cambios)
+        linea = _sustituir(
+            _PATRON_TELEFONO, "teléfono", linea, pagina, cambios, excepto=_PATRON_RANGO_ANIOS
+        )
         resultado.append(linea)
     return "\n".join(resultado), cambios
 
@@ -292,9 +328,11 @@ def corregir_unidades(
     """Corrige ``µg`` mal escrito o mal leído y reporta unidades fuera del catálogo.
 
     - ``ug`` → ``µg``: siempre.
-    - ``pg``, ``yg``, ``1g`` + ``/kg`` → ``µg/kg``: solo si el documento pasó por OCR **y**
+    - ``pg``, ``1g`` + ``/kg`` → ``µg/kg``: solo si el documento pasó por OCR **y**
       la línea tiene contexto de dosis (IV, IM, CRI, bolo…). En un documento digital el
       texto es exacto: si dice ``pg/kg``, es ``pg/kg``.
+    - Confusiones típicas del OCR (``rng`` → ``mg``, ``Ul`` → ``UI``, ``llg`` → ``µg``): se
+      corrigen con la tabla ``CONFUSIONES_OCR`` de ``unidades.py``.
     - Unidades que no están en el catálogo (``1a/kg``, ``ma/kg``): solo se reportan.
     """
     cambios: list[Cambio] = []
@@ -314,11 +352,17 @@ def corregir_unidades(
     lineas = []
     for linea in texto.splitlines():
         linea = _PATRON_UG.sub(reemplazador("ug → µg"), linea)
+        linea = _PATRON_MU_GRIEGA.sub(reemplazador("μ griega → µ (mismo símbolo)"), linea)
         if con_ocr and tiene_contexto_de_dosis(linea):
             linea = _PATRON_MICRO_OCR.sub(reemplazador("µ mal leído por el OCR"), linea)
         lineas.append(linea)
     texto = "\n".join(lineas)
 
+    texto, confusiones = corregir_confusiones_ocr(texto)
+    cambios.extend(
+        Cambio(TipoCambio.UNIDAD_CORREGIDA, regla, original, corregido, pagina)
+        for original, corregido, regla in confusiones
+    )
     cambios.extend(
         Cambio(TipoCambio.UNIDAD_SOSPECHOSA, "no está en el catálogo", contexto, pagina=pagina)
         for contexto in buscar_unidades_desconocidas(texto)

@@ -37,6 +37,14 @@ La justificación detallada de cada decisión está en [`docs/decisiones.md`](do
 | F5. Frontend React | [`frontend`](frontend) | ⏳ Pendiente |
 | F6. Despliegue en EC2 | [`infra`](infra) | ⏳ Pendiente |
 
+## Trabajo futuro (fase 2)
+
+- **Corrección con revisión médica**: botón "Reportar error" en el chat, tabla `correcciones`
+  y panel de administrador donde un médico aprueba o corrige unidades y dosis mal
+  digitalizadas; al aprobar, solo ese fragmento se vuelve a vectorizar. Ver
+  [`docs/decisiones.md`](docs/decisiones.md), D12.
+- **Reprocesar los documentos pendientes** ([`data/pendientes/`](data/pendientes)).
+
 ## ¿Qué NO está en este repositorio y por qué?
 
 Este repositorio es público, así que muestra **el proceso y el código** (clasificación,

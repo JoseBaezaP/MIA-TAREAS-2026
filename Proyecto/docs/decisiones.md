@@ -110,3 +110,53 @@ Cada decisión con las alternativas que se evaluaron y su justificación.
   protección final es que el agente cite la fuente.
 - Piloto: las mismas 18 correcciones y 2 errores de OCR nuevos detectados (`ma/kg` en una
   tabla de ketamina, `yg/dl` en un valor de cortisol).
+
+## D11. Ajustes de la limpieza con el corpus completo (322 documentos)
+
+El piloto no mostró estos casos; aparecieron al revisar el reporte del corpus completo:
+
+| Falso positivo | Ejemplo real | Ajuste |
+|---|---|---|
+| "Otros nombres" de razas | `Otros nombres: Bobtail Japonés` | La etiqueta `nombres` (plural) ya no cuenta |
+| "nombre:" dentro de una oración | `…con el nombre: fibrosis hepatoportal…` | La etiqueta debe ir al inicio de línea, de celda o tras una coma |
+| Casos clínicos | `Nombre: Mimo Especie: Felina Raza: Persa Edad: 7 años` | Solo se borra el **valor** de la etiqueta, hasta la siguiente etiqueta: se conservan especie, raza, edad y peso |
+| Filas de tablas | `600 3200 6400` | Teléfono sin etiqueta solo con formato inequívoco: `(81) 1234-5678`, `81-1234-5678`, `+52 …` |
+| Referencias bibliográficas | `(250) 1996-1998` | Se excluyen rangos de años |
+| Unidades reales fuera del catálogo | `mcg/kg`, `units/kg`, `gm/kg`, `3 veces/día`, `mosmol/kg`, `lat/min` | Se agregaron al catálogo |
+
+También se separó la regla "μ griega → µ" (1,099 casos: mismo símbolo, distinto carácter) de
+"ug → µg" (736), para que el reporte no infle las correcciones reales.
+
+## D12. Unidades ambiguas: advertir ahora, corregir con revisión médica después
+
+- Las unidades ambiguas (`mi/kg`, `u/kg`, `ig/ml`…) **no se corrigen automáticamente**:
+  corregir sería adivinar, y en una dosis eso es peligroso.
+- **Ahora**: cada chunk con una unidad dudosa lleva `unidades_dudosas` en sus metadatos. El
+  agente siempre cita libro y página cuando responde con dosis o medidas, recomienda verificar
+  en la fuente y advierte explícitamente si el fragmento usado tiene una unidad dudosa.
+- **Fase 2 (trabajo futuro)**: corrección con revisión humana (*human-in-the-loop*):
+  1. Botón "Reportar error" en las respuestas del chat.
+  2. Tabla `correcciones` (chunk, texto original/corregido, origen, estado, quién reportó,
+     quién revisó, fechas), precargada con las unidades ambiguas de la limpieza.
+  3. Panel de administrador donde un médico (rol `admin`) aprueba, edita o rechaza.
+  4. Al aprobar, se actualiza el chunk y se vuelve a vectorizar **solo ese chunk**. El texto
+     original queda en la tabla, así que la corrección se puede deshacer.
+- No es "reentrenar" el modelo: se corrige la **base de conocimiento**, que es más barato,
+  inmediato y auditable.
+
+## D13. Tabla de confusiones del OCR
+
+- Se revisaron en contexto las 277 unidades sospechosas del corpus y se clasificaron en 4
+  grupos: (1) confusiones sin ambigüedad (`Ul`→`UI`, `rng`→`mg`, `rnl`→`ml`, `mrnol`→`mmol`,
+  `rnEq`→`mEq`, `mEg`→`mEq`…); (2) la µ mal leída (`llg`, `IJg`, `jig`, `yg`, `prg`…→`µg`);
+  (3) unidades reales que faltaban (`fmol`, `CFU`, `AU`, `microl`, `spz`, `tomas/día`, `ui`…);
+  (4) ambiguas (`mi/kg`, `u/kg`, `ig/ml`, `ma/kg`…), que **solo se reportan** (ver D12).
+- Regla de la tabla (verificada con una prueba): lo leído **no** es una unidad real y la
+  corrección **sí** está en el catálogo.
+- `Ul/kg` se revisó en sus 128 apariciones: todas eran Unidades Internacionales (vitamina E,
+  insulina, penicilina). El microlitro mal leído aparece como `ul`, no como `Ul`.
+- Las pruebas atraparon un caso peligroso: en `(1Jg/ml)` la µ se leyó como "1J"; la regla
+  tomaba el "1" como cantidad y producía `1µg/ml`, **inventando un número**. `Jg` se quitó de
+  la tabla: es ambiguo.
+- Resultado: 330 correcciones nuevas; las sospechosas bajaron de 840 a **448** (en 61
+  documentos). Quedan sobre todo ambiguas y una cola larga de casos únicos.

@@ -5,8 +5,10 @@ SI (Tabla 1: unidades SI y derivadas; Tabla 2: prefijos; Tablas 3 y 4: unidades
 anglosajonas). Así ``mg``, ``ng``, ``µg``, ``mmol``, ``mval``, ``kcal``… no se escriben una
 por una.
 
-Este módulo solo **clasifica** unidades; no corrige nada. Las correcciones viven en
-``limpieza.py`` y son pocas y explícitas.
+Además tiene la tabla de **confusiones típicas del OCR** (``rn`` → ``m``, ``Ul`` → ``UI``,
+la µ leída como ``llg``, ``IJg``…). Solo se corrige cuando el resultado es una unidad del
+catálogo y lo leído no es ninguna unidad real; lo ambiguo (``mi/kg``, ``u/kg``) solo se
+reporta.
 """
 
 import re
@@ -15,8 +17,9 @@ from itertools import product
 # --- Tabla 2: prefijos --------------------------------------------------------------------
 # M (mega), k/K (kilo), h/H (hecto), da/D (deca), d (deci), c (centi), m (mili),
 # µ/μ/u (micro: símbolo micro, letra griega mu y la "u" que se usa sin teclado griego),
-# n (nano), p (pico) y sin prefijo.
-PREFIJOS = ("M", "k", "K", "h", "H", "da", "D", "d", "c", "m", "µ", "μ", "u", "n", "p", "")
+# n (nano), p (pico), f (femto: no está en la tabla, pero aparece en el corpus: fmol) y sin
+# prefijo.
+PREFIJOS = ("M", "k", "K", "h", "H", "da", "D", "d", "c", "m", "µ", "μ", "u", "n", "p", "f", "")
 
 # --- Tabla 1: unidades que aceptan prefijo ------------------------------------------------
 BASES_CON_PREFIJO = (
@@ -25,7 +28,7 @@ BASES_CON_PREFIJO = (
     "M",  # molar
     "val",  # val (mval)
     "Eq", "eq",  # equivalente (mEq)
-    "Osm", "osm",  # osmol (mOsm)
+    "Osm", "osm", "osmol", "Osmol",  # osmol (mOsm, mosmol)
     "l", "L",  # litro
     "m",  # metro
     "s",  # segundo
@@ -48,6 +51,18 @@ SIN_PREFIJO = (
     "gr", "grain", "dr", "oz", "lb", "lbs", "pt", "qt", "gal", "gi", "minim",
     # Clínicas frecuentes
     "gota", "gotas", "gts", "tab", "comp", "UFC", "ufc",
+    # Encontradas en el corpus completo (2026-09-27): abreviaturas en inglés y frecuencias
+    "mcg",  # microgramo en textos en inglés (= µg)
+    "gm", "grams", "unit", "units", "Units", "mmoles",
+    "PNU",  # protein nitrogen units (extractos alergénicos)
+    "vez", "veces",  # "3 veces/día"
+    "lat", "rev",  # latidos/min, revoluciones/min
+    "microl",  # microlitro escrito con letras
+    "CFU", "AU", "EU",  # colony forming / arbitrary / endotoxin units
+    "spz",  # espermatozoides/ml
+    "gram", "Unit", "moles", "cells", "beats",
+    "tomas", "horas", "litros",  # "3 tomas/día"
+    "ui", "Ui",  # "UI" escrito en minúsculas, frecuente en textos en español
 )  # fmt: skip
 
 # Lo que puede ir después de la "/" en una dosis o concentración.
@@ -128,3 +143,56 @@ def buscar_unidades_desconocidas(texto: str) -> list[str]:
             inicio = max(coincidencia.start() - 30, 0)
             sospechosas.append(" ".join(texto[inicio : coincidencia.end() + 10].split()))
     return sospechosas
+
+
+# --- Confusiones típicas del OCR -------------------------------------------------------------
+# Lo leído → (lo real, regla). Cada entrada salió del reporte del corpus completo y se revisó en
+# contexto: lo leído NO es una unidad real y la corrección SÍ está en el catálogo.
+# No están a propósito: "pg" (real: picogramo), "1g" ("1 g/dl" es real), "ig", "rg", "mi", "u"
+# (ambiguas: podrían ser mg, µg o ml) y "Jg"/"1Jg": en "(1Jg/ml)" no se sabe si el "1" es la
+# cantidad o parte de la µ, y corregirlo podría inventar un número.
+CONFUSIONES_OCR: dict[str, tuple[str, str]] = {
+    # I mayúscula leída como l minúscula (vitamina E 10 Ul/kg, insulina 40 Ul/ml)
+    "Ul": ("UI", "OCR: I → l"),
+    "mUl": ("mUI", "OCR: I → l"),
+    # m leída como rn (se ven casi iguales)
+    "rng": ("mg", "OCR: m → rn"),
+    "rnl": ("ml", "OCR: m → rn"),
+    "rnL": ("mL", "OCR: m → rn"),
+    "mrnol": ("mmol", "OCR: m → rn"),
+    "rnmol": ("mmol", "OCR: m → rn"),
+    "rnEq": ("mEq", "OCR: m → rn"),
+    # letras mal leídas o perdidas
+    "mmoi": ("mmol", "OCR: l → i"),
+    "mmo": ("mmol", "OCR: letra perdida"),
+    "mEg": ("mEq", "OCR: q → g"),
+    "meg": ("mcg", "OCR: c → e"),
+    # la µ leída de muchas formas
+    **dict.fromkeys(
+        ("llg", "IJg", "jig", "jUg", "jg", "xg", "wg", "Ug", "prg", "pcg", "yg"),
+        ("µg", "OCR: µ mal leída"),
+    ),
+}
+
+
+def corregir_confusiones_ocr(texto: str) -> tuple[str, list[tuple[str, str, str]]]:
+    """Corrige las confusiones del OCR en unidades compuestas (``5 rng/kg`` → ``5 mg/kg``).
+
+    Returns:
+        El texto corregido y una lista de ``(original, corregido, regla)``.
+    """
+    cambios: list[tuple[str, str, str]] = []
+
+    def reemplazar(coincidencia: re.Match[str]) -> str:
+        unidad = coincidencia.group("unidad")
+        if unidad not in CONFUSIONES_OCR:
+            return coincidencia.group(0)
+        real, regla = CONFUSIONES_OCR[unidad]
+        inicio = coincidencia.start("unidad") - coincidencia.start()
+        fin = coincidencia.end("unidad") - coincidencia.start()
+        original = coincidencia.group(0)
+        corregido = original[:inicio] + real + original[fin:]
+        cambios.append((original, corregido, regla))
+        return corregido
+
+    return PATRON_UNIDAD_COMPUESTA.sub(reemplazar, texto), cambios

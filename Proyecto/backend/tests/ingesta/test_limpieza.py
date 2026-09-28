@@ -98,9 +98,21 @@ def test_etiqueta_nombre_y_matricula() -> None:
         "**Nombre: Pouda Arguello Sheril Marisol, Matricula: 1811158, Grupo: 42**"
     )
     texto, cambios = quitar_datos_personales(linea)
-    assert texto == f"Escobedo, Nuevo León, enero de 2020 **{MARCA_DATO_PERSONAL}"
+    assert texto == (
+        f"Escobedo, Nuevo León, enero de 2020 **{MARCA_DATO_PERSONAL}, {MARCA_DATO_PERSONAL}"
+        ", Grupo: 42**"
+    )
     assert "1811158" not in texto
     assert cambios[0].tipo is TipoCambio.DATO_PERSONAL
+
+
+def test_caso_clinico_conserva_los_datos_clinicos() -> None:
+    linea = "Nombre: Mimo Especie: Felina Raza: Persa Sexo: Macho Edad: 7 años Peso: 3,5 kg"
+    limpio, cambios = quitar_datos_personales(linea)
+    assert limpio == (
+        f"{MARCA_DATO_PERSONAL} Especie: Felina Raza: Persa Sexo: Macho Edad: 7 años Peso: 3,5 kg"
+    )
+    assert cambios[0].original == "Nombre: Mimo"
 
 
 def test_lista_de_equipo() -> None:
@@ -116,6 +128,15 @@ def test_lista_de_equipo() -> None:
     assert len(cambios) == 3
 
 
+@pytest.mark.parametrize(
+    "linea", ["Nombre: Pouda Arguello", "**Nombre: Pouda Arguello**", "|Nombre: Ana Pérez|"]
+)
+def test_etiqueta_al_inicio_de_linea_o_celda(linea: str) -> None:
+    limpio, _ = quitar_datos_personales(linea)
+    assert "Pouda" not in limpio
+    assert "Ana" not in limpio
+
+
 def test_nombre_con_matricula_sin_etiqueta() -> None:
     limpio, _ = quitar_datos_personales("Monserrat Guadalupe Villegas Cruz 1922334")
     assert limpio == MARCA_DATO_PERSONAL
@@ -126,7 +147,8 @@ def test_nombre_con_matricula_sin_etiqueta() -> None:
     [
         "Teléfono: 847-925-8070",
         "Tel. (81) 1234-5678",
-        "Llamar al 81 1234 5678 para citas",
+        "Llamar al +52 81 1234 5678 para citas",
+        "Consultas: 81-1234-5678",
         "contacto: ana.perez@uanl.edu.mx",
     ],
 )
@@ -149,9 +171,19 @@ def test_telefonos_y_correos(linea: str) -> None:
         "GUSTAVO MACHICOTE GOTH Licenciado en Veterinaria por la Universidad de Buenos Aires.",
         # epónimos médicos
         "Síndrome de Cushing y enfermedad de Addison en perros.",
+        # "Otros nombres:" en razas de perro (corpus completo)
+        "Otros nombres: Bobtail Japonés",
+        "Otros nombres: Lakeland, Lakie, Patterdale terrier, Fell terrier",
+        # "nombre:" a mitad de oración
+        "También se conoce con el nombre: fibrosis hepatoportal en 3 perros",
+        # volumen y años en una referencia bibliográfica
+        "J Vet Intern Med (250) 1996-1998.",
         # dosis y rangos numéricos no son teléfonos
         "Dosis: 0,1-0,5 mg/kg IV cada 12 h; 10-20 µg/kg IM.",
         "Hematocrito 37-55 %, plaquetas 200 000-500 000 /µL",
+        # filas de tablas con números separados por espacios (corpus completo)
+        "|600 3200 6400|",
+        "62 6063 6164",
     ],
 )
 def test_trampas_datos_personales_no_se_borran(linea: str) -> None:
@@ -176,6 +208,12 @@ def test_corrige_micro_mal_leido_en_documentos_con_ocr(original: str, esperado: 
     corregido, cambios = corregir_unidades(original, con_ocr=True)
     assert corregido == esperado
     assert cambios[0].tipo is TipoCambio.UNIDAD_CORREGIDA
+
+
+def test_mu_griega_se_unifica_con_otra_regla() -> None:
+    corregido, cambios = corregir_unidades("Dosis 2,5 μg/kg IV")
+    assert corregido == "Dosis 2,5 µg/kg IV"
+    assert cambios[0].regla.startswith("μ griega")
 
 
 @pytest.mark.parametrize("texto", ["CRI: 1-2 ug/kg", "CRI: 0,5-1 ug/kg/h", "ACTH 10 ug/dl"])
