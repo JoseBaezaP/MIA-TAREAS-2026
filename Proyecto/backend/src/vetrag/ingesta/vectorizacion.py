@@ -32,8 +32,9 @@ logger = logging.getLogger(__name__)
 
 MAX_TEXTOS_POR_LOTE = 1_000  # límite de Voyage por petición
 # Voyage acepta hasta 320 mil tokens por petición con voyage-4. Como aquí los tokens se
-# ESTIMAN (~4 caracteres por token), se deja margen.
-MAX_TOKENS_ESTIMADOS_POR_LOTE = 200_000
+# ESTIMAN (~4 caracteres por token) y en tablas o texto de OCR la cuenta real puede ser 1.6
+# veces mayor, se deja margen. Si aun así un lote se pasa, se parte a la mitad.
+MAX_TOKENS_ESTIMADOS_POR_LOTE = 150_000
 REINTENTOS = 6
 ESPERA_INICIAL_SEGUNDOS = 2.0
 
@@ -152,6 +153,28 @@ def con_reintentos(
     raise AssertionError("inalcanzable")  # pragma: no cover
 
 
+def _es_lote_demasiado_grande(error: voyageai.error.InvalidRequestError) -> bool:
+    return "max allowed tokens per submitted batch" in str(error)
+
+
+def vectorizar_lote(
+    lote: Sequence[Chunk], vectorizador: Vectorizador
+) -> list[tuple[list[Chunk], ResultadoEmbedding]]:
+    """Vectoriza un lote. Si Voyage responde que tiene demasiados tokens, lo parte a la mitad
+    y vectoriza cada mitad (y así sucesivamente)."""
+    textos = [c.texto_para_embedding for c in lote]
+    try:
+        return [(list(lote), con_reintentos(partial(vectorizador.vectorizar, textos)))]
+    except voyageai.error.InvalidRequestError as error:
+        if len(lote) == 1 or not _es_lote_demasiado_grande(error):
+            raise
+        mitad = len(lote) // 2
+        logger.info("Lote de %d chunks demasiado grande: se parte en dos", len(lote))
+        return vectorizar_lote(lote[:mitad], vectorizador) + vectorizar_lote(
+            lote[mitad:], vectorizador
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class ResumenVectorizacion:
     """Qué se hizo en esta corrida."""
@@ -192,15 +215,14 @@ def ejecutar_vectorizacion(
             )  # fmt: skip
             detenido = True
             break
-        textos = [c.texto_para_embedding for c in lote]
-        resultado = con_reintentos(partial(vectorizador.vectorizar, textos))
-        repositorio.guardar(lote, resultado.vectores, resultado.tokens, vectorizador.modelo)
-        usados += resultado.tokens
-        vectorizados += len(lote)
-        logger.info(
-            "[%d/%d] %4d chunks, %7s tokens (total %s)",
-            numero, len(lotes), len(lote), f"{resultado.tokens:,}", f"{usados:,}",
-        )  # fmt: skip
+        for parte, resultado in vectorizar_lote(lote, vectorizador):
+            repositorio.guardar(parte, resultado.vectores, resultado.tokens, vectorizador.modelo)
+            usados += resultado.tokens
+            vectorizados += len(parte)
+            logger.info(
+                "[%d/%d] %4d chunks, %7s tokens (total %s)",
+                numero, len(lotes), len(parte), f"{resultado.tokens:,}", f"{usados:,}",
+            )  # fmt: skip
 
     return ResumenVectorizacion(
         pendientes=len(pendientes),

@@ -149,3 +149,41 @@ def test_leer_chunks_filtra_por_fuente(tmp_path: Path) -> None:
     )
     assert len(list(leer_chunks(ruta))) == 6
     assert len(list(leer_chunks(ruta, {"Bib/libro0.pdf"}))) == 3
+
+
+class VectorizadorConLimite(VectorizadorFalso):
+    """Como Voyage: rechaza lotes de más de ``limite`` tokens."""
+
+    def __init__(self, limite: int) -> None:
+        super().__init__()
+        self.limite = limite
+
+    def vectorizar(self, textos: Sequence[str]) -> ResultadoEmbedding:
+        tokens = sum(len(t) // 4 for t in textos)
+        if tokens > self.limite:
+            raise voyageai.error.InvalidRequestError(
+                "The max allowed tokens per submitted batch is 320000."
+            )
+        return super().vectorizar(textos)
+
+
+def test_lote_demasiado_grande_se_parte_en_dos() -> None:
+    repositorio = RepositorioFalso()
+    chunks = [chunk(i, tokens=500) for i in range(100)]  # 50 mil tokens en un lote
+    resumen = ejecutar_vectorizacion(
+        chunks, VectorizadorConLimite(limite=20_000), repositorio, limite_tokens=10**9
+    )
+    assert resumen.vectorizados == 100
+    assert len(repositorio.guardados) == 100
+    assert repositorio.tokens == 50_000  # se cuentan los tokens de cada parte
+
+
+def test_otros_errores_de_peticion_no_se_parten() -> None:
+    class VectorizadorInvalido(VectorizadorFalso):
+        def vectorizar(self, textos: Sequence[str]) -> ResultadoEmbedding:
+            raise voyageai.error.InvalidRequestError("modelo inexistente")
+
+    with pytest.raises(voyageai.error.InvalidRequestError):
+        ejecutar_vectorizacion(
+            [chunk(1), chunk(2)], VectorizadorInvalido(), RepositorioFalso(), limite_tokens=10**9
+        )

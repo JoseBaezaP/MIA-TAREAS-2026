@@ -163,3 +163,20 @@ También se separó la regla "μ griega → µ" (1,099 casos: mismo símbolo, di
   la tabla: es ambiguo.
 - Resultado: 330 correcciones nuevas; las sospechosas bajaron de 840 a **448** (en 61
   documentos). Quedan sobre todo ambiguas y una cola larga de casos únicos.
+
+## D14. Lecciones de la vectorización del corpus completo
+
+- **Sin método de pago, Voyage limita a 3 peticiones y 10 mil tokens por minuto** (el corpus
+  habría tardado más de 4 días). Con tarjeta registrada, los tokens gratuitos siguen aplicando
+  y el límite de seguridad del código impide pasar de 190 M.
+- **La estimación de tokens (4 caracteres por token) se queda corta**: ~20 % en promedio, y
+  hasta 1.6× en tablas o texto de OCR. Un lote "estimado" en 200 mil tenía 320,121 tokens
+  reales y Voyage lo rechazó. Solución: lotes de 150 mil estimados y, si aun así se pasan,
+  **partir el lote a la mitad** automáticamente.
+- **Error de transacciones**: sin `autocommit`, la primera consulta abre una transacción
+  implícita y cada lote se volvía una subtransacción que solo se guardaba al final; al fallar a
+  la mitad se perdía todo lo vectorizado (y el registro de tokens). Se corrigió con
+  `autocommit=True` y una prueba que verifica, **desde otra conexión**, que cada lote queda
+  guardado. La prueba falla con el código anterior y pasa con el corregido.
+- Los ~2.71 M de tokens que se enviaron sin quedar registrados se agregaron a mano a
+  `uso_voyage` (fila con `chunks = 0`) para que el contador de seguridad sea exacto.

@@ -17,7 +17,7 @@ cualquier paso sin repetir los anteriores.
 | 2. Conversión a Markdown | ✅ Probado en el piloto (10 documentos) |
 | 3. Limpieza | ✅ Probado en el piloto (10 documentos) |
 | 4. Chunking | ✅ Corpus completo: 116,365 chunks, ~60 M tokens |
-| 5. Vectorización | ✅ Probado en el piloto (359 chunks, 224,177 tokens) |
+| 5. Vectorización | ✅ Corpus completo: 116,365 chunks en pgvector (~76 M tokens de Voyage) |
 
 ## Módulos
 
@@ -28,7 +28,7 @@ cualquier paso sin repetir los anteriores.
 | `conversion.py` | Convierte cada documento a Markdown con `anydoc`, página por página, con marcas de página |
 | `limpieza.py` | Quita encabezados repetidos, números de página y datos personales; corrige µg; genera el reporte |
 | `chunking.py` | Divide cada documento en chunks por secciones, con traslape, páginas, encabezado de contexto y unidades dudosas |
-| `vectorizacion.py` | Envía los chunks a Voyage por lotes (con límite de tokens y reintentos) y los guarda en pgvector |
+| `vectorizacion.py` | Envía los chunks a Voyage por lotes (límite de tokens, reintentos, lotes que se parten si son muy grandes) y los guarda en pgvector |
 | `unidades.py` | Catálogo de unidades (prefijos SI × unidades base, anglosajonas y clínicas) para distinguir unidades reales de errores de OCR |
 | `__main__.py` | Comando `vetrag-ingesta` con un subcomando por paso |
 
@@ -170,6 +170,7 @@ chunks.jsonl ─► lotes (≤ 1,000 chunks, ~200 mil tokens) ─► Voyage voya
 | Reanudable | Los chunks que ya están en la base se saltan |
 | Consistencia | Cada lote y su consumo se guardan en **una sola transacción** |
 | Errores temporales | Reintentos con espera creciente (2, 4, 8… s) |
+| Lote demasiado grande | Si Voyage lo rechaza (> 320 mil tokens reales), se parte a la mitad |
 | Chunks recortados | `truncation=False`: mejor un error que un vector de un texto incompleto |
 
 La lógica recibe un `Vectorizador` y un `Repositorio` como "puertos"; las pruebas usan
@@ -182,3 +183,7 @@ uv run vetrag-ingesta vectorizar --piloto
 **Piloto:** 359 chunks en 1 petición (9 s), 224,177 tokens reales (~20 % más que la
 estimación de 4 caracteres por token). Búsqueda de prueba: una pregunta **en inglés** sobre el
 moquillo encontró el folleto **en español** como primer resultado.
+
+**Corpus completo (2026-09-27):** 116,365 chunks vectorizados en ~12 minutos, 75.9 M tokens
+registrados (incluye un ajuste manual; ver D14), base de 1.7 GB con índice HNSW. Una búsqueda
+entre todos los chunks tarda **10–35 ms**.

@@ -21,6 +21,7 @@ Usuario ──► F5 Frontend (React) ──► F4 API (FastAPI + JWT) ──►
 | PDF → Markdown | `anydoc` | Local, rápido, conserva títulos y tablas |
 | Embeddings | Voyage AI `voyage-4` | Multilingüe (es/en), dentro de los tokens gratuitos |
 | Base vectorial | PostgreSQL + `pgvector` | SQL estándar + búsqueda por similitud |
+| LLM | OpenAI `gpt-5.6-luna` | Económico, salidas estructuradas; detrás de un puerto para poder cambiarlo |
 | Agente | LangGraph | Flujo explícito como grafo: reformular → buscar → evaluar → responder |
 | API | FastAPI | Tipado, asíncrono, documentación automática |
 
@@ -31,8 +32,8 @@ La justificación detallada de cada decisión está en [`docs/decisiones.md`](do
 | Fase | Carpeta de código | Estado |
 |---|---|---|
 | F1. Clasificación del corpus | [`backend/src/vetrag/clasificacion`](backend/src/vetrag/clasificacion) | ✅ Completada: 362 archivos → 322 conservados, 40 descartados (revisión manual) |
-| F2. Ingesta (OCR, Markdown, chunking, vectorización) | [`backend/src/vetrag/ingesta`](backend/src/vetrag/ingesta) | 🚧 En curso |
-| F3. Agente LangGraph + evaluación | [`backend/src/vetrag/agente`](backend/src/vetrag/agente) | ⏳ Pendiente |
+| F2. Ingesta (OCR, Markdown, chunking, vectorización) | [`backend/src/vetrag/ingesta`](backend/src/vetrag/ingesta) | ✅ Completada: 116,365 chunks en pgvector (12 documentos pendientes de reproceso) |
+| F3. Agente LangGraph + evaluación | [`backend/src/vetrag/agente`](backend/src/vetrag/agente) | 🚧 En diseño |
 | F4. API + autenticación | [`backend/src/vetrag/api`](backend/src/vetrag/api) | ⏳ Pendiente |
 | F5. Frontend React | [`frontend`](frontend) | ⏳ Pendiente |
 | F6. Despliegue en EC2 | [`infra`](infra) | ⏳ Pendiente |
