@@ -19,6 +19,13 @@ flujo completo esté terminado**, para no bloquear el avance del resto del corpu
 Mientras tanto, esos documentos no generan chunks (o solo de las pocas páginas que sí tienen
 texto), así que no afectan al resto del pipeline.
 
+## Mejoras pendientes del pipeline
+
+| Paso | Mejora | Motivo |
+|---|---|---|
+| 3. Limpieza | Unir palabras cortadas con guion al final de línea (`pro- liferations` → `proliferations`), solo entre letras | Mejora un poco la búsqueda |
+| 4. Chunking | Usar el idioma del documento completo cuando un chunk corto sale como "desconocido" (2,896 chunks) | Mejor metadato de idioma |
+
 ## ¿Por qué no se sube a GitHub?
 
 `pendientes.csv` contiene los nombres de los libros de la biblioteca personal.

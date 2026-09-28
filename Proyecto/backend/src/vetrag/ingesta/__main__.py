@@ -5,15 +5,18 @@ Cada paso de la ingesta es un subcomando, para poder correrlos y revisarlos por 
     uv run vetrag-ingesta ocr --piloto
     uv run vetrag-ingesta convertir --piloto
     uv run vetrag-ingesta limpiar --piloto
+    uv run vetrag-ingesta chunks --piloto
 """
 
 import argparse
+import json
 import logging
 import os
 from collections import Counter
+from dataclasses import asdict
 
 from vetrag.config import Configuracion, obtener_configuracion
-from vetrag.ingesta import conversion, limpieza, ocr
+from vetrag.ingesta import chunking, conversion, limpieza, ocr
 from vetrag.ingesta.seleccion import (
     DocumentoSeleccionado,
     filtrar_piloto,
@@ -73,6 +76,18 @@ def _comando_limpiar(argumentos: argparse.Namespace) -> None:
     _resumir([str(c.tipo) for _, c in reporte])
 
 
+def _comando_chunks(argumentos: argparse.Namespace) -> None:
+    configuracion = obtener_configuracion()
+    documentos = _documentos(configuracion, argumentos.piloto)
+    logger.info("Chunking de %d documentos", len(documentos))
+    resumen = chunking.ejecutar_chunking(
+        documentos, configuracion.ruta_limpio, configuracion.ruta_chunks / "chunks.jsonl"
+    )
+    ruta_resumen = configuracion.ruta_chunks / "resumen.json"
+    ruta_resumen.write_text(json.dumps(asdict(resumen), indent=2), encoding="utf-8")
+    logger.info("Listo: %s", asdict(resumen))
+
+
 def _argumentos() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ingesta de documentos (F2).")
     parser.add_argument("-v", "--verbose", action="store_true", help="más detalle en el log")
@@ -101,6 +116,12 @@ def _argumentos() -> argparse.Namespace:
         "--piloto", action="store_true", help="solo los documentos de piloto.txt"
     )
     parser_limpiar.set_defaults(funcion=_comando_limpiar)
+
+    parser_chunks = pasos.add_parser("chunks", help="paso 4: división en chunks")
+    parser_chunks.add_argument(
+        "--piloto", action="store_true", help="solo los documentos de piloto.txt"
+    )
+    parser_chunks.set_defaults(funcion=_comando_chunks)
     return parser.parse_args()
 
 

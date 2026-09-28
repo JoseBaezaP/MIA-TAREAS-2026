@@ -46,6 +46,11 @@ class Configuracion(BaseSettings):
         """Carpeta de salida del paso de limpieza (F2)."""
         return self.ruta_data / "04_limpio"
 
+    @property
+    def ruta_chunks(self) -> Path:
+        """Carpeta de salida del paso de chunking (F2)."""
+        return self.ruta_data / "05_chunks"
+
 
 @lru_cache
 def obtener_configuracion() -> Configuracion:

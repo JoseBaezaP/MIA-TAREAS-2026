@@ -43,7 +43,8 @@ La justificación detallada de cada decisión está en [`docs/decisiones.md`](do
   y panel de administrador donde un médico aprueba o corrige unidades y dosis mal
   digitalizadas; al aprobar, solo ese fragmento se vuelve a vectorizar. Ver
   [`docs/decisiones.md`](docs/decisiones.md), D12.
-- **Reprocesar los documentos pendientes** ([`data/pendientes/`](data/pendientes)).
+- **Reprocesar los documentos pendientes** y aplicar las mejoras menores registradas en
+  [`data/pendientes/`](data/pendientes).
 
 ## ¿Qué NO está en este repositorio y por qué?
 

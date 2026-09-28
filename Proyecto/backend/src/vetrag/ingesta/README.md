@@ -16,7 +16,7 @@ cualquier paso sin repetir los anteriores.
 | 1. OCR | ✅ Probado en el piloto (10 documentos) |
 | 2. Conversión a Markdown | ✅ Probado en el piloto (10 documentos) |
 | 3. Limpieza | ✅ Probado en el piloto (10 documentos) |
-| 4. Chunking | ⏳ |
+| 4. Chunking | ✅ Corpus completo: 116,365 chunks, ~60 M tokens |
 | 5. Vectorización | ⏳ |
 
 ## Módulos
@@ -27,6 +27,7 @@ cualquier paso sin repetir los anteriores.
 | `ocr.py` | Elige el modo de OCR de cada documento y ejecuta `ocrmypdf`; escribe el manifiesto |
 | `conversion.py` | Convierte cada documento a Markdown con `anydoc`, página por página, con marcas de página |
 | `limpieza.py` | Quita encabezados repetidos, números de página y datos personales; corrige µg; genera el reporte |
+| `chunking.py` | Divide cada documento en chunks por secciones, con traslape, páginas, encabezado de contexto y unidades dudosas |
 | `unidades.py` | Catálogo de unidades (prefijos SI × unidades base, anglosajonas y clínicas) para distinguir unidades reales de errores de OCR |
 | `__main__.py` | Comando `vetrag-ingesta` con un subcomando por paso |
 
@@ -125,3 +126,31 @@ uv run vetrag-ingesta limpiar --piloto
 **Piloto:** 18 unidades corregidas a µg, 5 unidades fuera del catálogo reportadas, 7 datos personales eliminados (nombre y matrícula de
 una estudiante, 4 integrantes de un equipo, un correo y un teléfono), 7 encabezados/pies
 repetidos y 3 unidades sospechosas reportadas.
+
+## Paso 4: chunking
+
+```
+Markdown limpio ─► bloques (título / párrafo / tabla, con página y ruta de títulos)
+                ─► chunks de ~800 tokens sin mezclar secciones ─► data/05_chunks/chunks.jsonl
+```
+
+| Regla | Por qué |
+|---|---|
+| Se corta **por secciones** (títulos del Markdown) | Un chunk no mezcla dos temas |
+| Secciones de < 100 tokens se unen con la siguiente | Un título suelto no sirve como chunk |
+| Párrafos largos se cortan **por oraciones** (`.` `!` `?` + mayúscula) | Nunca a mitad de una idea; no se separa `Dosis:` de su valor |
+| Tablas largas se cortan **por filas repitiendo el encabezado** | Una fila sin encabezado no se entiende |
+| Traslape de ~100 tokens dentro de la misma sección | No se pierde contexto en el corte |
+| **Encabezado de contexto** en el texto que se vectoriza | El vector "sabe" de qué libro, especialidad y sección es |
+| Chunks con texto idéntico se guardan una vez | Revistas y copias repetidas |
+
+Cada línea de `chunks.jsonl` tiene: `id`, `documento`, `fuente`, `especialidad`, `idioma`
+(detectado en el chunk), `ruta_titulos`, `pagina_inicio`, `pagina_fin`, `tokens`, `texto`,
+`texto_para_embedding` y `unidades_dudosas`.
+
+```bash
+uv run vetrag-ingesta chunks --piloto
+```
+
+**Corpus completo:** 116,365 chunks (mediana 486 tokens), ~60 M tokens para Voyage, 10,948
+chunks duplicados descartados, 304 chunks con unidades dudosas.
