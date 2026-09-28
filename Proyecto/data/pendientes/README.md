@@ -25,6 +25,7 @@ texto), así que no afectan al resto del pipeline.
 |---|---|---|
 | 3. Limpieza | Unir palabras cortadas con guion al final de línea (`pro- liferations` → `proliferations`), solo entre letras | Mejora un poco la búsqueda |
 | 4. Chunking | Usar el idioma del documento completo cuando un chunk corto sale como "desconocido" (2,896 chunks) | Mejor metadato de idioma |
+| 4. Chunking | Si la **última** sección de un bloque tiene < 20 tokens (p. ej. una oración corta), unirla al chunk anterior en lugar de descartarla | Hoy se pierde (se descarta como si fuera basura) |
 
 ## ¿Por qué no se sube a GitHub?
 
