@@ -28,7 +28,7 @@ START → reformular → buscar → evaluar ─┬─(hay fragmentos útiles, o 
 | `__main__.py` | Chat de consola `vetrag-chat` |
 
 **Puertos:** los nodos no saben qué LLM ni qué base de datos se usan. Para cambiar de proveedor
-(u usar LangChain) basta con otro adaptador; las pruebas usan un modelo y un recuperador falsos.
+(o usar LangChain) basta con otro adaptador; las pruebas usan un modelo y un recuperador falsos.
 
 ## Uso
 
