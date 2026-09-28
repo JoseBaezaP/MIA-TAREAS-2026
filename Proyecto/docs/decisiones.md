@@ -32,8 +32,11 @@ Cada decisión con las alternativas que se evaluaron y su justificación.
 
 - SQL estándar, un solo motor para chunks y usuarios, índice HNSW. Con 1024 dimensiones
   queda dentro del límite de 2000 dimensiones del tipo `vector`.
-- El piloto usa una base local en Docker. Para producción, la base se copia al EC2
-  (`pg_dump` / `pg_restore`).
+- **Desarrollo**: se usa el PostgreSQL 14 que ya estaba instalado en la Mac (en lugar de
+  Docker), con una base y un usuario propios (`vetrag`) para no tocar otros proyectos.
+  pgvector 0.8.6 se compiló desde el código fuente (Homebrew solo lo trae para PG 17/18).
+- **Producción**: la base se copia al EC2 (`pg_dump` / `pg_restore`); un respaldo de PG 14
+  se restaura sin problema en una versión más nueva.
 
 ## D4. OCR: `ocrmypdf` con `--skip-text`
 

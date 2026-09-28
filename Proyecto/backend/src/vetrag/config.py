@@ -3,6 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/src/vetrag/config.py → parents[3] = Proyecto/
@@ -20,6 +21,14 @@ class Configuracion(BaseSettings):
 
     ruta_assets: Path = RAIZ_PROYECTO / "assets"
     ruta_data: Path = RAIZ_PROYECTO / "data"
+
+    # Secretos: SecretStr evita que aparezcan si se imprime la configuración o en un error.
+    voyage_api_key: SecretStr | None = None
+    database_url: SecretStr | None = None
+
+    modelo_embedding: str = "voyage-4"
+    # Tokens gratuitos de voyage-4: 200 millones. Se deja margen por seguridad.
+    limite_tokens_voyage: int = 190_000_000
 
     @property
     def ruta_clasificacion(self) -> Path:

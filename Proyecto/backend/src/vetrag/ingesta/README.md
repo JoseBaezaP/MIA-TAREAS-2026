@@ -17,7 +17,7 @@ cualquier paso sin repetir los anteriores.
 | 2. Conversión a Markdown | ✅ Probado en el piloto (10 documentos) |
 | 3. Limpieza | ✅ Probado en el piloto (10 documentos) |
 | 4. Chunking | ✅ Corpus completo: 116,365 chunks, ~60 M tokens |
-| 5. Vectorización | ⏳ |
+| 5. Vectorización | ✅ Probado en el piloto (359 chunks, 224,177 tokens) |
 
 ## Módulos
 
@@ -28,6 +28,7 @@ cualquier paso sin repetir los anteriores.
 | `conversion.py` | Convierte cada documento a Markdown con `anydoc`, página por página, con marcas de página |
 | `limpieza.py` | Quita encabezados repetidos, números de página y datos personales; corrige µg; genera el reporte |
 | `chunking.py` | Divide cada documento en chunks por secciones, con traslape, páginas, encabezado de contexto y unidades dudosas |
+| `vectorizacion.py` | Envía los chunks a Voyage por lotes (con límite de tokens y reintentos) y los guarda en pgvector |
 | `unidades.py` | Catálogo de unidades (prefijos SI × unidades base, anglosajonas y clínicas) para distinguir unidades reales de errores de OCR |
 | `__main__.py` | Comando `vetrag-ingesta` con un subcomando por paso |
 
@@ -154,3 +155,30 @@ uv run vetrag-ingesta chunks --piloto
 
 **Corpus completo:** 116,365 chunks (mediana 486 tokens), ~60 M tokens para Voyage, 10,948
 chunks duplicados descartados, 304 chunks con unidades dudosas.
+
+## Paso 5: vectorización
+
+```
+chunks.jsonl ─► lotes (≤ 1,000 chunks, ~200 mil tokens) ─► Voyage voyage-4 (input_type="document")
+            ─► tabla chunks (vector(1024)) + tabla uso_voyage ─► índice HNSW (similitud coseno)
+```
+
+| Protección | Cómo |
+|---|---|
+| Tokens gratuitos | Solo el endpoint normal (`embed`), nunca el Batch API |
+| Límite de tokens | Suma los tokens **que reporta Voyage** (tabla `uso_voyage`) y se detiene antes de `VETRAG_LIMITE_TOKENS_VOYAGE` (190 M) |
+| Reanudable | Los chunks que ya están en la base se saltan |
+| Consistencia | Cada lote y su consumo se guardan en **una sola transacción** |
+| Errores temporales | Reintentos con espera creciente (2, 4, 8… s) |
+| Chunks recortados | `truncation=False`: mejor un error que un vector de un texto incompleto |
+
+La lógica recibe un `Vectorizador` y un `Repositorio` como "puertos"; las pruebas usan
+versiones falsas y no gastan tokens.
+
+```bash
+uv run vetrag-ingesta vectorizar --piloto
+```
+
+**Piloto:** 359 chunks en 1 petición (9 s), 224,177 tokens reales (~20 % más que la
+estimación de 4 caracteres por token). Búsqueda de prueba: una pregunta **en inglés** sobre el
+moquillo encontró el folleto **en español** como primer resultado.

@@ -6,6 +6,7 @@ Cada paso de la ingesta es un subcomando, para poder correrlos y revisarlos por 
     uv run vetrag-ingesta convertir --piloto
     uv run vetrag-ingesta limpiar --piloto
     uv run vetrag-ingesta chunks --piloto
+    uv run vetrag-ingesta vectorizar --piloto
 """
 
 import argparse
@@ -15,8 +16,10 @@ import os
 from collections import Counter
 from dataclasses import asdict
 
+from vetrag.base_datos.conexion import conectar, crear_esquema
+from vetrag.base_datos.repositorio_chunks import RepositorioChunks
 from vetrag.config import Configuracion, obtener_configuracion
-from vetrag.ingesta import chunking, conversion, limpieza, ocr
+from vetrag.ingesta import chunking, conversion, limpieza, ocr, vectorizacion
 from vetrag.ingesta.seleccion import (
     DocumentoSeleccionado,
     filtrar_piloto,
@@ -88,6 +91,29 @@ def _comando_chunks(argumentos: argparse.Namespace) -> None:
     logger.info("Listo: %s", asdict(resumen))
 
 
+def _comando_vectorizar(argumentos: argparse.Namespace) -> None:
+    configuracion = obtener_configuracion()
+    if configuracion.voyage_api_key is None or configuracion.database_url is None:
+        raise SystemExit("Faltan VETRAG_VOYAGE_API_KEY o VETRAG_DATABASE_URL en backend/.env")
+    fuentes = None
+    if argumentos.piloto:
+        fuentes = {str(d.ruta_relativa) for d in _documentos(configuracion, piloto=True)}
+    chunks = list(vectorizacion.leer_chunks(configuracion.ruta_chunks / "chunks.jsonl", fuentes))
+    vectorizador = vectorizacion.VectorizadorVoyage(
+        configuracion.voyage_api_key.get_secret_value(), configuracion.modelo_embedding
+    )
+    with conectar(configuracion.database_url.get_secret_value()) as conexion:
+        crear_esquema(conexion)
+        repositorio = RepositorioChunks(conexion)
+        resumen = vectorizacion.ejecutar_vectorizacion(
+            chunks, vectorizador, repositorio, configuracion.limite_tokens_voyage
+        )
+        if not resumen.detenido_por_limite:
+            logger.info("Creando el índice vectorial HNSW…")
+            repositorio.crear_indice_vectorial()
+        logger.info("Listo: %s | chunks en la base: %d", asdict(resumen), repositorio.contar())
+
+
 def _argumentos() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ingesta de documentos (F2).")
     parser.add_argument("-v", "--verbose", action="store_true", help="más detalle en el log")
@@ -122,6 +148,14 @@ def _argumentos() -> argparse.Namespace:
         "--piloto", action="store_true", help="solo los documentos de piloto.txt"
     )
     parser_chunks.set_defaults(funcion=_comando_chunks)
+
+    parser_vectorizar = pasos.add_parser(
+        "vectorizar", help="paso 5: embeddings con Voyage → pgvector"
+    )
+    parser_vectorizar.add_argument(
+        "--piloto", action="store_true", help="solo los documentos de piloto.txt"
+    )
+    parser_vectorizar.set_defaults(funcion=_comando_vectorizar)
     return parser.parse_args()
 
 

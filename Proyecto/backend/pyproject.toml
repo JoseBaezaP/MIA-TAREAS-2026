@@ -6,8 +6,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "firecrawl-anydoc>=0.2.4",
+    "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.4",
     "pypdfium2>=4.30",
+    "voyageai>=0.5.0",
 ]
 
 [project.scripts]
@@ -60,3 +62,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_calls = false  # las clases de error de voyageai no declaran tipos
