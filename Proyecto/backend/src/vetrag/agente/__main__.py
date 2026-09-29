@@ -11,8 +11,7 @@ import uuid
 from vetrag.agente.estado import Estado, Respuesta
 from vetrag.agente.grafo import Agente
 from vetrag.agente.modelo import ModeloOpenAI
-from vetrag.agente.recuperador import RecuperadorPgvector
-from vetrag.base_datos.conexion import conectar
+from vetrag.agente.recuperador import RecuperadorPgvector, crear_pool
 from vetrag.config import obtener_configuracion
 
 ANCHO = 90
@@ -65,7 +64,7 @@ def main() -> None:
     assert configuracion.openai_api_key and configuracion.voyage_api_key
     assert configuracion.database_url
 
-    with conectar(configuracion.database_url.get_secret_value()) as conexion:
+    with crear_pool(configuracion.database_url.get_secret_value(), maximo=1) as pool:
         agente = Agente(
             modelo=ModeloOpenAI(
                 configuracion.openai_api_key.get_secret_value(),
@@ -73,7 +72,7 @@ def main() -> None:
                 configuracion.esfuerzo_razonamiento,
             ),
             recuperador=RecuperadorPgvector(
-                conexion,
+                pool,
                 configuracion.voyage_api_key.get_secret_value(),
                 configuracion.modelo_embedding,
             ),

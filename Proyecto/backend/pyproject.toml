@@ -5,12 +5,17 @@ description = "Agente veterinario con RAG agéntico (LangGraph + pgvector + Voya
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.141.1",
     "firecrawl-anydoc>=0.2.4",
     "langgraph>=1.2.12",
     "openai>=3.19.2",
+    "psycopg-pool>=3.3.3",
     "psycopg[binary]>=3.3.6",
+    "pwdlib[argon2]>=0.3.1",
     "pydantic-settings>=2.4",
+    "pyjwt>=2.15.1",
     "pypdfium2>=4.30",
+    "uvicorn[standard]>=0.54.0",
     "voyageai>=0.5.0",
 ]
 
@@ -18,9 +23,12 @@ dependencies = [
 vetrag-clasificar = "vetrag.clasificacion.__main__:main"
 vetrag-ingesta = "vetrag.ingesta.__main__:main"
 vetrag-chat = "vetrag.agente.__main__:main"
+vetrag-api = "vetrag.api.main:main"
+vetrag-usuarios = "vetrag.auth.__main__:main"
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "mypy>=1.11",
     "pytest>=8.3",
     "ruff>=0.6",

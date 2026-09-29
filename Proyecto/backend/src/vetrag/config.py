@@ -3,11 +3,18 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import BaseModel, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/src/vetrag/config.py → parents[3] = Proyecto/
 RAIZ_PROYECTO = Path(__file__).resolve().parents[3]
+
+
+class UsuarioInicial(BaseModel):
+    """Usuario que se crea con ``vetrag-usuarios sincronizar`` (la contraseña solo vive en .env)."""
+
+    email: str
+    password: SecretStr
 
 
 class Configuracion(BaseSettings):
@@ -37,6 +44,14 @@ class Configuracion(BaseSettings):
     esfuerzo_razonamiento: str = "low"  # none, low, medium, high, xhigh, max
     fragmentos_por_busqueda: int = 8
     max_busquedas: int = 2  # búsqueda inicial + 1 reintento con otra consulta
+
+    # --- F4: API y login ---
+    jwt_secreto: SecretStr | None = None
+    horas_de_sesion: int = 8
+    # En el servidor (HTTPS) debe ser True: la cookie solo viaja cifrada.
+    cookie_segura: bool = False
+    usuarios_iniciales: list[UsuarioInicial] = []
+    ruta_frontend: Path = RAIZ_PROYECTO / "frontend" / "dist"
 
     @property
     def ruta_clasificacion(self) -> Path:
