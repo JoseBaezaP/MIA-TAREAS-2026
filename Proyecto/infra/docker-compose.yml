@@ -7,6 +7,24 @@ services:
     # Contenedor PROPIO de VetRAG, separado de la base de otros proyectos (p. ej. Laravel).
     image: pgvector/pgvector:pg17
     restart: unless-stopped
+    # Ajustado para un servidor de 2 GB compartido con otro sitio (Laravel + MariaDB):
+    # - shared_buffers: caché propia de PostgreSQL (el resto lo cachea el sistema operativo).
+    # - effective_cache_size: cuánta memoria cree que hay para caché (planificación de consultas).
+    # - maintenance_work_mem: memoria para reconstruir el índice HNSW al restaurar el respaldo.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=900MB
+      - -c
+      - maintenance_work_mem=384MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - max_connections=30
+    # Límite duro: si VetRAG pide demasiada memoria, Docker frena a VetRAG, no a MariaDB/Laravel.
+    mem_limit: 1100m
     environment:
       POSTGRES_DB: vetrag
       POSTGRES_USER: vetrag
@@ -31,6 +49,7 @@ services:
     ports:
       # Solo en 127.0.0.1: desde internet se entra por nginx (HTTPS), nunca directo.
       - "127.0.0.1:${VETRAG_PUERTO:-8000}:8000"
+    mem_limit: 450m
     depends_on:
       db:
         condition: service_healthy
