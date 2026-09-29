@@ -1,0 +1,18 @@
+# Lo que NO entra a la imagen (ni se envía a Docker al construir).
+assets/
+data/
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+frontend/dist/
+infra/pgdata/
+infra/respaldos/
+**/*.dump
+.git
+**/.DS_Store

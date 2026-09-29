@@ -1,0 +1,39 @@
+# VetRAG en el servidor: la app (FastAPI + frontend) y su base de datos (PostgreSQL + pgvector).
+# Uso (desde infra/):  docker compose up -d --build
+name: vetrag
+
+services:
+  db:
+    # Contenedor PROPIO de VetRAG, separado de la base de otros proyectos (p. ej. Laravel).
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vetrag
+      POSTGRES_USER: vetrag
+      POSTGRES_PASSWORD: ${VETRAG_DB_PASSWORD:?Falta VETRAG_DB_PASSWORD en infra/.env}
+    volumes:
+      - vetrag-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetrag -d vetrag"]
+      interval: 10s
+      retries: 10
+    # Sin "ports": la base SOLO es accesible desde la red interna de este compose.
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      VETRAG_DATABASE_URL: postgresql://vetrag:${VETRAG_DB_PASSWORD}@db:5432/vetrag
+      VETRAG_COOKIE_SEGURA: "true"  # la cookie de sesión solo viaja por HTTPS
+    ports:
+      # Solo en 127.0.0.1: desde internet se entra por nginx (HTTPS), nunca directo.
+      - "127.0.0.1:${VETRAG_PUERTO:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  vetrag-pgdata:
