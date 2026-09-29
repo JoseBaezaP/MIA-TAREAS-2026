@@ -25,6 +25,10 @@ services:
       - max_connections=30
     # Límite duro: si VetRAG pide demasiada memoria, Docker frena a VetRAG, no a MariaDB/Laravel.
     mem_limit: 1100m
+    # Memoria compartida (/dev/shm). Docker da solo 64 MB por defecto, y PostgreSQL la usa para
+    # construir el índice HNSW en paralelo (necesita ~maintenance_work_mem). Sin esto, restaurar
+    # falla con "could not resize shared memory segment … No space left on device".
+    shm_size: 512mb
     environment:
       POSTGRES_DB: vetrag
       POSTGRES_USER: vetrag
