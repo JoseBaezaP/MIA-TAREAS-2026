@@ -198,3 +198,20 @@ También se separó la regla "μ griega → µ" (1,099 casos: mismo símbolo, di
   LLM se ignoran).
 - **Memoria**: checkpointer de LangGraph por `thread_id`, con las clases propias declaradas
   como tipos permitidos (medida de seguridad al deserializar). En la F4 pasará a PostgreSQL.
+
+## D16. API y frontend: FastAPI + Preact/Vite, un solo servidor
+
+- **FastAPI** expone el agente y sirve los archivos estáticos del frontend: un solo servidor en
+  el EC2 y un solo origen (sin CORS).
+- **Sesión en cookie `httpOnly` + `SameSite=strict`** (en lugar del header `Authorization`):
+  como frontend y API comparten origen, el token no queda al alcance del JavaScript de la página
+  y la cookie no se envía desde otros sitios. Contraseñas con hash argon2; límite de 5 intentos
+  fallidos cada 10 minutos por IP y correo; mismo mensaje de error exista o no el correo.
+- **Respuesta en streaming (Server-Sent Events)**: la interfaz muestra los pasos del agente en
+  vivo (a los ~2, 2 y 4 s) en lugar de esperar ~7 s en blanco.
+- **Preact + Vite** en lugar de Astro (propuesta inicial): la app es una sola pantalla
+  interactiva, y Astro solo la estaba empaquetando (`client:only`). Preact comparte la API de
+  React; la app pesa ~33 KB comprimidos.
+- El texto del agente (Markdown) se **sanitiza con DOMPurify** antes de mostrarse.
+- Usuarios iniciales: dos cuentas creadas desde `VETRAG_USUARIOS_INICIALES` (`.env`); sin
+  registro público.
