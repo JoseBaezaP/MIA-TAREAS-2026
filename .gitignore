@@ -1,3 +1,4 @@
 Proyecto/assets/*
 !Proyecto/assets/README.md
 *.env
+.DS_Store

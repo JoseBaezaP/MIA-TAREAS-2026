@@ -28,7 +28,11 @@ cp .env.example .env   # y completar los valores
 
 ```bash
 uv run vetrag-clasificar          # F1: genera data/01_clasificacion/
-uv run pytest                     # pruebas
+uv run vetrag-ingesta <paso>      # F2: ocr | convertir | limpiar | chunks | vectorizar (--piloto)
+uv run vetrag-chat                # F3: chat de consola con el agente
+uv run vetrag-api                 # F4: API + frontend en http://127.0.0.1:8000 (requiere auth/)
+uv run vetrag-usuarios sincronizar  # F4: crea los usuarios de VETRAG_USUARIOS_INICIALES (requiere auth/)
+uv run pytest                     # pruebas (sin auth/, omitir tests/api con --ignore=tests/api)
 uv run ruff check . && uv run ruff format --check .   # estilo (PEP 8)
 uv run mypy src                   # tipos
 ```

@@ -197,7 +197,8 @@ También se separó la regla "μ griega → µ" (1,099 casos: mismo símbolo, di
   advertencias de unidades dudosas se arman de forma determinista (números inventados por el
   LLM se ignoran).
 - **Memoria**: checkpointer de LangGraph por `thread_id`, con las clases propias declaradas
-  como tipos permitidos (medida de seguridad al deserializar). En la F4 pasará a PostgreSQL.
+  como tipos permitidos (medida de seguridad al deserializar). Se guarda en RAM: las
+  conversaciones se pierden al reiniciar el servidor, lo que es aceptable para la demostración.
 
 ## D16. API y frontend: FastAPI + Preact/Vite, un solo servidor
 
@@ -215,3 +216,21 @@ También se separó la regla "μ griega → µ" (1,099 casos: mismo símbolo, di
 - El texto del agente (Markdown) se **sanitiza con DOMPurify** antes de mostrarse.
 - Usuarios iniciales: dos cuentas creadas desde `VETRAG_USUARIOS_INICIALES` (`.env`); sin
   registro público.
+
+## D17. Despliegue: Docker Compose en un EC2 compartido
+
+- **Servidor**: EC2 `t3.small` (2 GB, x86_64) que ya aloja otro sitio (Laravel + MariaDB). Se
+  pasó de `t2.nano` porque la base con el índice HNSW no cabía en memoria.
+- **Contenedores**: `app` (FastAPI + frontend compilado, imagen en 2 etapas, usuario sin
+  privilegios) y `db` (PostgreSQL 17 + pgvector) **propio de VetRAG**, sin puertos publicados.
+  La app solo escucha en `127.0.0.1`; desde internet se entra por el nginx del servidor con
+  HTTPS (Let's Encrypt) y `proxy_buffering off` para el streaming.
+- **Memoria**: `mem_limit` por contenedor (1100 MB la base, 450 MB la app) y PostgreSQL ajustado
+  a 2 GB, para que VetRAG nunca deje sin memoria al otro sitio. Se agregaron 2 GB de *swap*.
+- **Restaurar el índice HNSW** falló con "No space left on device": Docker da solo 64 MB de
+  `/dev/shm` y PostgreSQL lo usa para construir el índice en paralelo. Se resolvió con
+  `shm_size: 512mb`.
+- **Datos**: la base se genera en la Mac y se copia con `pg_dump`/`pg_restore` (~620 MB); el
+  servidor nunca vectoriza documentos, solo las preguntas (con el mismo `voyage-4`).
+- **Código**: el servidor clona un repositorio **privado** con el código completo (incluido
+  `auth/`); este repositorio público no lo incluye (D7).

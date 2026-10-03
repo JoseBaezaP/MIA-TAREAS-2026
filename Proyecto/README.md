@@ -36,7 +36,7 @@ La justificación detallada de cada decisión está en [`docs/decisiones.md`](do
 | F3. Agente LangGraph + evaluación | [`backend/src/vetrag/agente`](backend/src/vetrag/agente) | 🚧 Agente y chat de consola listos; falta la evaluación |
 | F4. API + autenticación | [`backend/src/vetrag/api`](backend/src/vetrag/api) | ✅ FastAPI, login con cookie httpOnly, chat en streaming |
 | F5. Frontend | [`frontend`](frontend) | ✅ Preact + Vite: login y chat con pasos en vivo, citas y fuentes |
-| F6. Despliegue en EC2 | [`infra`](infra) | ⏳ Pendiente |
+| F6. Despliegue en EC2 | [`infra`](infra) | ✅ Docker Compose (app + pgvector) detrás de nginx con HTTPS |
 
 ## Trabajo futuro (fase 2)
 
@@ -62,6 +62,25 @@ RAG y agente), pero **no los datos**:
 
 Cada carpeta excluida conserva su `README.md`, que explica qué contiene y cómo se genera.
 
+## Cómo ejecutarlo
+
+Requisitos: Python ≥ 3.12 con [uv](https://docs.astral.sh/uv/), Node 20+, PostgreSQL con
+`pgvector`, y API keys de Voyage AI y OpenAI.
+
+```bash
+cd backend && uv sync && cp .env.example .env    # completar las API keys y la base
+uv run vetrag-clasificar                        # F1 (requiere los PDFs en assets/)
+uv run vetrag-ingesta ocr                       # F2: ocr → convertir → limpiar → chunks → vectorizar
+uv run vetrag-chat                              # F3: chat con el agente en la consola
+uv run pytest                                   # pruebas
+```
+
+Los detalles de cada paso están en el README de su carpeta.
+
+> **Nota:** la API (`api/`) y sus pruebas importan el módulo `auth/`, que no se publica, así
+> que en este repositorio solo funcionan F1–F3 (incluido el chat de consola). El código
+> completo vive en un repositorio privado, que es el que se despliega en el servidor.
+
 ## Estructura
 
 ```
@@ -69,7 +88,7 @@ Proyecto/
 ├── assets/     # biblioteca original (no se sube)
 ├── data/       # resultados de cada fase (no se sube)
 ├── backend/    # código Python: clasificación, ingesta, agente, API
-├── frontend/   # interfaz React (F5)
-├── infra/      # Docker, PostgreSQL + pgvector
+├── frontend/   # interfaz Preact + Vite (F5)
+├── infra/      # despliegue: Docker, nginx, respaldos (F6)
 └── docs/       # decisiones técnicas y documentación
 ```

@@ -8,14 +8,15 @@ PDF ─► ocr.py ─► conversion.py ─► limpieza.py ─► chunking.py ─
        (ocrmypdf) (anydoc → Markdown) (ruido)    (~800 tokens)   (Voyage voyage-4)
 ```
 
-Cada paso escribe su salida en `data/0X_*/` (`02_ocr`, `03_markdown`, `04_limpio`, `05_chunks`), así que el proceso se puede retomar desde
+Cada subcomando acepta `--piloto` para procesar solo los 10 documentos de `data/piloto.txt`
+(fuera de git) antes de correr el corpus completo. Cada paso escribe su salida en `data/0X_*/` (`02_ocr`, `03_markdown`, `04_limpio`, `05_chunks`), así que el proceso se puede retomar desde
 cualquier paso sin repetir los anteriores.
 
 | Paso | Estado |
 |---|---|
-| 1. OCR | ✅ Probado en el piloto (10 documentos) |
-| 2. Conversión a Markdown | ✅ Probado en el piloto (10 documentos) |
-| 3. Limpieza | ✅ Probado en el piloto (10 documentos) |
+| 1. OCR | ✅ Corpus completo: 111 documentos con OCR (5 del piloto), 202 no lo necesitaron (4.7 h) |
+| 2. Conversión a Markdown | ✅ Corpus completo: 318 documentos, 75,522 páginas |
+| 3. Limpieza | ✅ Corpus completo: 1,227 datos personales eliminados, 1,957 unidades corregidas |
 | 4. Chunking | ✅ Corpus completo: 116,365 chunks, ~60 M tokens |
 | 5. Vectorización | ✅ Corpus completo: 116,365 chunks en pgvector (~76 M tokens de Voyage) |
 
