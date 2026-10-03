@@ -6,6 +6,12 @@ Un agente que responde preguntas de medicina veterinaria **únicamente con base 
 biblioteca curada de libros y artículos** (español e inglés), citando la fuente
 (libro y página) de cada respuesta.
 
+# ¿Como entrar?
+
+El usuario y contraseña fue enviado a su correo y a teams, el remitente del correo debe ser <josedelarosabass@gmail.com> y mi usuario de teams es Jose Baeza.
+
+El link para poder acceder al chat es: [https://vetrag.islaaguadaservicios.site/](https://vetrag.islaaguadaservicios.site/)
+
 ## Arquitectura
 
 ```
